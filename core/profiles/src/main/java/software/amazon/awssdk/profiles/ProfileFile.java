@@ -31,6 +31,7 @@ import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.profiles.internal.ProfileFileReader;
 import software.amazon.awssdk.utils.FunctionalUtils;
 import software.amazon.awssdk.utils.IoUtils;
+import software.amazon.awssdk.utils.Lazy;
 import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
 import software.amazon.awssdk.utils.builder.SdkBuilder;
@@ -51,6 +52,12 @@ import software.amazon.awssdk.utils.builder.SdkBuilder;
  */
 @SdkPublicApi
 public final class ProfileFile {
+    private static final Lazy<ProfileFile> DEFAULT_PROFILE_FILE =
+        new Lazy<>(() -> ProfileFile.aggregator()
+                                    .applyMutation(ProfileFile::addCredentialsFile)
+                                    .applyMutation(ProfileFile::addConfigFile)
+                                    .build());
+
     private final Map<String, Profile> profiles;
 
     /**
@@ -83,10 +90,7 @@ public final class ProfileFile {
      * {@link ProfileFileSystemSetting#AWS_PROFILE} settings or by specifying a different profile file and profile name
      */
     public static ProfileFile defaultProfileFile() {
-        return ProfileFile.aggregator()
-                          .applyMutation(ProfileFile::addCredentialsFile)
-                          .applyMutation(ProfileFile::addConfigFile)
-                          .build();
+        return DEFAULT_PROFILE_FILE.getValue();
     }
 
     /**

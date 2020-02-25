@@ -93,5 +93,7 @@ public final class ProfileProperty {
      */
     public static final String S3_US_EAST_1_REGIONAL_ENDPOINT = "s3_us_east_1_regional_endpoint";
 
+    public static final String RETRY_MODE = "retry_mode";
+
     private ProfileProperty() {}
 }

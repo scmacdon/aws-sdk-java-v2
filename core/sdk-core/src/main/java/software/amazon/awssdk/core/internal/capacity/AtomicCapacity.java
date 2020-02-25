@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.utils.Validate;
 
-@SdkInternalApi // TODO: internal
+@SdkInternalApi
 public class AtomicCapacity {
     private final int maxCapacity;
     private final AtomicInteger capacity;
@@ -35,7 +35,6 @@ public class AtomicCapacity {
         if (amountToAcquire == 0) {
             return true;
         }
-
 
         while (true) {
             int currentCapacity = capacity.get();

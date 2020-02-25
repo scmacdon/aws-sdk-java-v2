@@ -23,6 +23,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.core.ClientType;
 import software.amazon.awssdk.core.ServiceConfiguration;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.SdkHttpClient;
@@ -43,6 +44,8 @@ public final class SdkClientOption<T> extends ClientOption<T> {
      * @see ClientOverrideConfiguration#retryPolicy()
      */
     public static final SdkClientOption<RetryPolicy> RETRY_POLICY = new SdkClientOption<>(RetryPolicy.class);
+
+    public static final SdkClientOption<RequestCapacity> REQUEST_CAPACITY = new SdkClientOption<>(RequestCapacity.class);
 
     /**
      * @see ClientOverrideConfiguration#executionInterceptors()

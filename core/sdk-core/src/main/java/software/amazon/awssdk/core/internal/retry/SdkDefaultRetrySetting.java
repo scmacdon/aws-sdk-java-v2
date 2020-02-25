@@ -22,9 +22,12 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.SdkSystemSetting;
 import software.amazon.awssdk.core.exception.ApiCallAttemptTimeoutException;
 import software.amazon.awssdk.core.exception.RetryableException;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.http.HttpStatusCode;
+import software.amazon.awssdk.utils.Validate;
 
 @SdkInternalApi
 public final class SdkDefaultRetrySetting {
@@ -42,6 +45,8 @@ public final class SdkDefaultRetrySetting {
      * that may be attempted before retry capacity is fully drained.
      */
     public static final int THROTTLED_RETRIES = 100;
+
+    public static final int TOKEN_BUCKET_SIZE = RETRY_THROTTLING_COST * THROTTLED_RETRIES;
 
     public static final Duration BASE_DELAY = Duration.ofMillis(100);
 
@@ -70,4 +75,26 @@ public final class SdkDefaultRetrySetting {
     }
 
     private SdkDefaultRetrySetting() {}
+
+    public static Integer defaultMaxAttempts() {
+        Integer defaultMaxAttempts = SdkSystemSetting.AWS_MAX_ATTEMPTS.getIntegerValue().orElse(null);
+
+        if (defaultMaxAttempts == null) {
+            RetryMode retryMode = RetryMode.defaultRetryMode();
+            switch (retryMode) {
+                case LEGACY:
+                    defaultMaxAttempts = 4;
+                    break;
+                case STANDARD:
+                    defaultMaxAttempts = 3;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown retry mode: " + retryMode);
+            }
+        }
+
+        Validate.isPositive(defaultMaxAttempts, "Maximum attempts must be positive, but was " + defaultMaxAttempts);
+
+        return defaultMaxAttempts;
+    }
 }

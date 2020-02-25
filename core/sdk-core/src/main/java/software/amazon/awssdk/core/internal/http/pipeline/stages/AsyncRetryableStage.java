@@ -20,14 +20,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.Response;
 import software.amazon.awssdk.core.SdkStandardLogger;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.exception.NonRetryableException;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -38,7 +37,6 @@ import software.amazon.awssdk.core.internal.http.TransformingAsyncResponseHandle
 import software.amazon.awssdk.core.internal.http.pipeline.RequestPipeline;
 import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
 import software.amazon.awssdk.core.internal.retry.RetryHandler;
-import software.amazon.awssdk.core.internal.util.CapacityManager;
 import software.amazon.awssdk.core.internal.util.ThrowableUtils;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
@@ -58,7 +56,7 @@ public final class AsyncRetryableStage<OutputT> implements RequestPipeline<SdkHt
     private final RequestPipeline<SdkHttpFullRequest, CompletableFuture<Response<OutputT>>> requestPipeline;
     private final ScheduledExecutorService scheduledExecutor;
     private final HttpClientDependencies dependencies;
-    private final CapacityManager retryCapacity;
+    private final RequestCapacity requestCapacity;
     private final RetryPolicy retryPolicy;
 
     public AsyncRetryableStage(TransformingAsyncResponseHandler<Response<OutputT>> responseHandler,
@@ -68,7 +66,7 @@ public final class AsyncRetryableStage<OutputT> implements RequestPipeline<SdkHt
         this.dependencies = dependencies;
         this.scheduledExecutor = dependencies.clientConfiguration().option(SdkClientOption.SCHEDULED_EXECUTOR_SERVICE);
         this.retryPolicy = dependencies.clientConfiguration().option(SdkClientOption.RETRY_POLICY);
-        this.retryCapacity = dependencies.retryCapacity();
+        this.requestCapacity = dependencies.clientConfiguration().option(SdkClientOption.REQUEST_CAPACITY);
         this.requestPipeline = requestPipeline;
     }
 
@@ -94,7 +92,7 @@ public final class AsyncRetryableStage<OutputT> implements RequestPipeline<SdkHt
             this.request = request;
             this.context = context;
             this.originalRequestBody = context.requestProvider();
-            this.retryHandler = new RetryHandler(retryPolicy, retryCapacity);
+            this.retryHandler = new RetryHandler(retryPolicy, requestCapacity);
         }
 
         public CompletableFuture<Response<OutputT>> execute() throws Exception {

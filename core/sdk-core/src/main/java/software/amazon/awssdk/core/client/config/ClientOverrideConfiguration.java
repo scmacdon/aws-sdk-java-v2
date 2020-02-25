@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import software.amazon.awssdk.annotations.SdkPublicApi;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
@@ -46,6 +47,7 @@ public final class ClientOverrideConfiguration
     implements ToCopyableBuilder<ClientOverrideConfiguration.Builder, ClientOverrideConfiguration> {
     private final Map<String, List<String>> headers;
     private final RetryPolicy retryPolicy;
+    private final RequestCapacity requestCapacity;
     private final List<ExecutionInterceptor> executionInterceptors;
     private final AttributeMap advancedOptions;
     private final Duration apiCallAttemptTimeout;
@@ -57,6 +59,7 @@ public final class ClientOverrideConfiguration
     private ClientOverrideConfiguration(Builder builder) {
         this.headers = CollectionUtils.deepUnmodifiableMap(builder.headers(), () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
         this.retryPolicy = builder.retryPolicy();
+        this.requestCapacity = builder.requestCapacity();
         this.executionInterceptors = Collections.unmodifiableList(new ArrayList<>(builder.executionInterceptors()));
         this.advancedOptions = builder.advancedOptions();
         this.apiCallTimeout = Validate.isPositiveOrNull(builder.apiCallTimeout(), "apiCallTimeout");
@@ -68,6 +71,7 @@ public final class ClientOverrideConfiguration
         return new DefaultClientOverrideConfigurationBuilder().advancedOptions(advancedOptions.toBuilder())
                                                               .headers(headers)
                                                               .retryPolicy(retryPolicy)
+                                                              .requestCapacity(requestCapacity)
                                                               .apiCallTimeout(apiCallTimeout)
                                                               .apiCallAttemptTimeout(apiCallAttemptTimeout)
                                                               .executionInterceptors(executionInterceptors);
@@ -99,6 +103,10 @@ public final class ClientOverrideConfiguration
      */
     public Optional<RetryPolicy> retryPolicy() {
         return Optional.ofNullable(retryPolicy);
+    }
+
+    public Optional<RequestCapacity> requestCapacity() {
+        return Optional.ofNullable(requestCapacity);
     }
 
     /**
@@ -225,6 +233,10 @@ public final class ClientOverrideConfiguration
 
         RetryPolicy retryPolicy();
 
+        Builder requestCapacity(RequestCapacity requestCapacity);
+
+        RequestCapacity requestCapacity();
+
         /**
          * Configure the retry policy the should be used when handling failure cases.
          */
@@ -333,6 +345,7 @@ public final class ClientOverrideConfiguration
     private static final class DefaultClientOverrideConfigurationBuilder implements Builder {
         private Map<String, List<String>> headers = new HashMap<>();
         private RetryPolicy retryPolicy;
+        private RequestCapacity requestCapacity;
         private List<ExecutionInterceptor> executionInterceptors = new ArrayList<>();
         private AttributeMap.Builder advancedOptions = AttributeMap.builder();
         private Duration apiCallTimeout;
@@ -375,6 +388,17 @@ public final class ClientOverrideConfiguration
         @Override
         public RetryPolicy retryPolicy() {
             return retryPolicy;
+        }
+
+        @Override
+        public Builder requestCapacity(RequestCapacity requestCapacity) {
+            this.requestCapacity = requestCapacity;
+            return this;
+        }
+
+        @Override
+        public RequestCapacity requestCapacity() {
+            return requestCapacity;
         }
 
         @Override

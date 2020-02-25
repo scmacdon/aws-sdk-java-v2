@@ -19,9 +19,9 @@ import static java.util.Collections.singletonList;
 
 import java.time.Duration;
 import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.internal.http.RequestExecutionContext;
-import software.amazon.awssdk.core.internal.util.CapacityManager;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.RetryUtils;
@@ -34,7 +34,7 @@ public final class RetryHandler {
     public static final String HEADER_SDK_RETRY_INFO = "amz-sdk-retry";
 
     private final RetryPolicy retryPolicy;
-    private final CapacityManager retryCapacity;
+    private final RequestCapacity retryCapacity;
 
     private Duration lastBackoffDelay = Duration.ZERO;
     private boolean retryCapacityConsumed;
@@ -42,7 +42,7 @@ public final class RetryHandler {
     private SdkException lastRetriedException;
 
     public RetryHandler(RetryPolicy retryPolicy,
-                        CapacityManager retryCapacity) {
+                        RequestCapacity retryCapacity) {
         this.retryPolicy = retryPolicy;
         this.retryCapacity = retryCapacity;
     }

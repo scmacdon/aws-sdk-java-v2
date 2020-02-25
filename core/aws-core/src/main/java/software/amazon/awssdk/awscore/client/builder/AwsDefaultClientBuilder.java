@@ -113,6 +113,7 @@ public abstract class AwsDefaultClientBuilder<BuilderT extends AwsClientBuilder<
     @Override
     protected final SdkClientConfiguration mergeChildDefaults(SdkClientConfiguration configuration) {
         SdkClientConfiguration config = mergeServiceDefaults(configuration);
+
         return config.merge(c -> c.option(AwsClientOption.AWS_REGION, resolveRegion(config))
                                   .option(AwsAdvancedClientOption.ENABLE_DEFAULT_REGION_DETECTION, true)
                                   .option(AwsClientOption.CREDENTIALS_PROVIDER, DefaultCredentialsProvider.create())

@@ -16,24 +16,22 @@
 package software.amazon.awssdk.core.capacity;
 
 import software.amazon.awssdk.annotations.SdkPublicApi;
-import software.amazon.awssdk.core.internal.capacity.DefaultRequestCapacity;
-import software.amazon.awssdk.core.retry.RetryMode;
 
 @SdkPublicApi
-public interface RequestCapacity {
-    boolean shouldAttemptRequest(RequestCapacityContext context);
+public final class DoNotThrottleRequestCapacity implements RequestCapacity {
+    private DoNotThrottleRequestCapacity() {}
 
-    void requestSucceeded(RequestCapacityContext context);
-
-    static RequestCapacity defaultRequestCapacity() {
-        return DefaultRequestCapacity.forRetryMode(RetryMode.defaultRetryMode());
+    public static RequestCapacity create() {
+        return new DoNotThrottleRequestCapacity();
     }
 
-    static RequestCapacity forRetryMode(RetryMode mode) {
-        return DefaultRequestCapacity.forRetryMode(mode);
+    @Override
+    public boolean shouldAttemptRequest(RequestCapacityContext context) {
+        return true;
     }
 
-    static RequestCapacity unlimited() {
-        return DoNotThrottleRequestCapacity.create();
+    @Override
+    public void requestSucceeded(RequestCapacityContext context) {
+
     }
 }

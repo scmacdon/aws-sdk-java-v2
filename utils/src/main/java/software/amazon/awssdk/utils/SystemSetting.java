@@ -67,6 +67,14 @@ public interface SystemSetting {
                                           + "property " + property() + " must be set."));
     }
 
+    default Optional<Integer> getIntegerValue() {
+        return getStringValue().map(Integer::parseInt);
+    }
+
+    default Integer getIntegerValueOrThrow() {
+        return Integer.parseInt(getStringValueOrThrow());
+    }
+
     /**
      * Attempt to load a system setting from {@link System#getProperty(String)} and {@link System#getenv(String)}. This should be
      * used in favor of those methods because the SDK should support both methods of configuration.

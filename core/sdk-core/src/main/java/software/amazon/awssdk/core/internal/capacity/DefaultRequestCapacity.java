@@ -15,51 +15,36 @@
 
 package software.amazon.awssdk.core.internal.capacity;
 
-import java.util.function.Function;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.capacity.RequestCapacity;
-import software.amazon.awssdk.core.capacity.RequestCapacityContext;
-import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.core.interceptor.ExecutionAttribute;
+import software.amazon.awssdk.core.capacity.TokenBucketExceptionCostCalculator;
+import software.amazon.awssdk.core.capacity.TokenBucketRequestCapacity;
+import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
+import software.amazon.awssdk.core.retry.RetryMode;
 
 @SdkInternalApi
-public class DefaultRequestCapacity implements RequestCapacity {
-    private static final ExecutionAttribute<Integer> LAST_ACQUIRED_CAPACITY =
-        new ExecutionAttribute<>("LegacyRequestCapacity.LAST_ACQUIRED_CAPACITY");
+public class DefaultRequestCapacity {
+    private DefaultRequestCapacity() {}
 
-    private final AtomicCapacity capacity;
-    private final Function<SdkException, Integer> exceptionCostCalculator;
-
-    DefaultRequestCapacity(AtomicCapacity capacity, Function<SdkException, Integer> exceptionCostCalculator) {
-        this.capacity = capacity;
-        this.exceptionCostCalculator = exceptionCostCalculator;
+    public static RequestCapacity forRetryMode(RetryMode mode) {
+        return TokenBucketRequestCapacity.builder()
+                                         .tokenBucketSize(SdkDefaultRetrySetting.TOKEN_BUCKET_SIZE)
+                                         .exceptionCostCalculator(getExceptionCostCalculator(mode))
+                                         .build();
     }
 
-    @Override
-    public boolean shouldAttemptRequest(RequestCapacityContext context) {
-        if (context.attemptNumber() == 1) {
-            return true;
+    private static TokenBucketExceptionCostCalculator getExceptionCostCalculator(RetryMode mode) {
+        switch (mode) {
+            case LEGACY: return TokenBucketExceptionCostCalculator.builder()
+                                                                  .throttlingExceptionCost(0)
+                                                                  .defaultExceptionCost(5)
+                                                                  .build();
+
+            case STANDARD: return  TokenBucketExceptionCostCalculator.builder()
+                                                                     .defaultExceptionCost(5)
+                                                                     .build();
+
+            default: throw new IllegalStateException("Unsupported RetryMode: " + mode);
         }
-
-        int costOfFailure = costOfFailure(context.latestFailure());
-
-        context.executionAttributes().putAttribute(LAST_ACQUIRED_CAPACITY, costOfFailure);
-
-        return capacity.tryAcquire(costOfFailure);
-    }
-
-    @Override
-    public void requestSucceeded(RequestCapacityContext context) {
-        Integer lastAcquiredCapacity = context.executionAttributes().getAttribute(LAST_ACQUIRED_CAPACITY);
-
-        if (lastAcquiredCapacity == null || lastAcquiredCapacity == 0) {
-            capacity.release(1);
-        } else {
-            capacity.release(lastAcquiredCapacity);
-        }
-    }
-
-    private int costOfFailure(SdkException latestFailure) {
-        return exceptionCostCalculator.apply(latestFailure);
     }
 }

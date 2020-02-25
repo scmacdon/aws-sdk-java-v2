@@ -28,6 +28,7 @@ import static software.amazon.awssdk.core.client.config.SdkClientOption.API_CALL
 import static software.amazon.awssdk.core.client.config.SdkClientOption.ASYNC_HTTP_CLIENT;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.CRC32_FROM_COMPRESSED_DATA_ENABLED;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.EXECUTION_INTERCEPTORS;
+import static software.amazon.awssdk.core.client.config.SdkClientOption.REQUEST_CAPACITY;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_POLICY;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.SCHEDULED_EXECUTOR_SERVICE;
 import static software.amazon.awssdk.utils.CollectionUtils.mergeLists;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.annotations.SdkTestInternalApi;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
@@ -189,6 +191,7 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
         return configuration.merge(c -> c.option(EXECUTION_INTERCEPTORS, new ArrayList<>())
                                          .option(ADDITIONAL_HTTP_HEADERS, new LinkedHashMap<>())
                                          .option(RETRY_POLICY, RetryPolicy.defaultRetryPolicy())
+                                         .option(REQUEST_CAPACITY, RequestCapacity.defaultRequestCapacity())
                                          .option(USER_AGENT_PREFIX, UserAgentUtils.getUserAgent())
                                          .option(USER_AGENT_SUFFIX, "")
                                          .option(CRC32_FROM_COMPRESSED_DATA_ENABLED, false));
@@ -330,6 +333,7 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
     public final B overrideConfiguration(ClientOverrideConfiguration overrideConfig) {
         clientConfiguration.option(EXECUTION_INTERCEPTORS, overrideConfig.executionInterceptors());
         clientConfiguration.option(RETRY_POLICY, overrideConfig.retryPolicy().orElse(null));
+        clientConfiguration.option(REQUEST_CAPACITY, overrideConfig.requestCapacity().orElse(null));
         clientConfiguration.option(ADDITIONAL_HTTP_HEADERS, overrideConfig.headers());
         clientConfiguration.option(SIGNER, overrideConfig.advancedOption(SIGNER).orElse(null));
         clientConfiguration.option(USER_AGENT_SUFFIX, overrideConfig.advancedOption(USER_AGENT_SUFFIX).orElse(null));

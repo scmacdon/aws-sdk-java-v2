@@ -18,10 +18,10 @@ package software.amazon.awssdk.core.internal.http.pipeline.stages;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
-
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.Response;
 import software.amazon.awssdk.core.SdkStandardLogger;
+import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -32,7 +32,6 @@ import software.amazon.awssdk.core.internal.http.pipeline.RequestPipeline;
 import software.amazon.awssdk.core.internal.http.pipeline.RequestToResponsePipeline;
 import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
 import software.amazon.awssdk.core.internal.retry.RetryHandler;
-import software.amazon.awssdk.core.internal.util.CapacityManager;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.utils.Logger;
@@ -48,14 +47,14 @@ public final class RetryableStage<OutputT> implements RequestToResponsePipeline<
     private final RequestPipeline<SdkHttpFullRequest, Response<OutputT>> requestPipeline;
 
     private final HttpClientDependencies dependencies;
-    private final CapacityManager retryCapacity;
     private final RetryPolicy retryPolicy;
+    private final RequestCapacity requestCapacity;
 
     public RetryableStage(HttpClientDependencies dependencies,
                           RequestPipeline<SdkHttpFullRequest, Response<OutputT>> requestPipeline) {
         this.dependencies = dependencies;
-        this.retryCapacity = dependencies.retryCapacity();
         this.retryPolicy = dependencies.clientConfiguration().option(SdkClientOption.RETRY_POLICY);
+        this.requestCapacity = dependencies.clientConfiguration().option(SdkClientOption.REQUEST_CAPACITY);
         this.requestPipeline = requestPipeline;
     }
 
@@ -77,7 +76,7 @@ public final class RetryableStage<OutputT> implements RequestToResponsePipeline<
         private RetryExecutor(SdkHttpFullRequest request, RequestExecutionContext context) {
             this.request = request;
             this.context = context;
-            this.retryHandler = new RetryHandler(retryPolicy, retryCapacity);
+            this.retryHandler = new RetryHandler(retryPolicy, requestCapacity);
         }
 
         public Response<OutputT> execute() throws Exception {

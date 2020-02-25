@@ -23,7 +23,6 @@ import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.internal.http.pipeline.RequestPipeline;
 import software.amazon.awssdk.core.internal.http.pipeline.RequestPipelineBuilder;
 import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
-import software.amazon.awssdk.core.internal.util.CapacityManager;
 import software.amazon.awssdk.utils.SdkAutoCloseable;
 
 /**
@@ -34,7 +33,6 @@ import software.amazon.awssdk.utils.SdkAutoCloseable;
 public final class HttpClientDependencies implements SdkAutoCloseable {
     private final ClockSkewAdjuster clockSkewAdjuster = new ClockSkewAdjuster();
     private final SdkClientConfiguration clientConfiguration;
-    private final CapacityManager capacityManager;
 
     /**
      * Time offset may be mutated by {@link RequestPipeline} implementations if a clock skew is detected.
@@ -43,7 +41,6 @@ public final class HttpClientDependencies implements SdkAutoCloseable {
 
     private HttpClientDependencies(Builder builder) {
         this.clientConfiguration = paramNotNull(builder.clientConfiguration, "ClientConfiguration");
-        this.capacityManager = paramNotNull(builder.capacityManager, "CapacityManager");
     }
 
     public static Builder builder() {
@@ -52,13 +49,6 @@ public final class HttpClientDependencies implements SdkAutoCloseable {
 
     public SdkClientConfiguration clientConfiguration() {
         return clientConfiguration;
-    }
-
-    /**
-     * @return CapacityManager object used for retry throttling.
-     */
-    public CapacityManager retryCapacity() {
-        return capacityManager;
     }
 
     /**
@@ -93,17 +83,11 @@ public final class HttpClientDependencies implements SdkAutoCloseable {
      */
     public static class Builder {
         private SdkClientConfiguration clientConfiguration;
-        private CapacityManager capacityManager;
 
         private Builder() {}
 
         public Builder clientConfiguration(SdkClientConfiguration clientConfiguration) {
             this.clientConfiguration = clientConfiguration;
-            return this;
-        }
-
-        public Builder capacityManager(CapacityManager capacityManager) {
-            this.capacityManager = capacityManager;
             return this;
         }
 

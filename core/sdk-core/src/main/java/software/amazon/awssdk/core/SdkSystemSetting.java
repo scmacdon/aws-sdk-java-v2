@@ -159,7 +159,7 @@ public enum SdkSystemSetting implements SystemSetting {
     /**
      * The max attempts to use. TODO: More info.
      */
-    AWS_MAX_ATTEMPTS("aws.maxAttempts", "3"),
+    AWS_MAX_ATTEMPTS("aws.maxAttempts", null),
 
     ;
 

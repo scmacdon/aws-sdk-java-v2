@@ -15,13 +15,63 @@
 
 package software.amazon.awssdk.core.capacity;
 
+import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.utils.Validate;
 
-public interface RequestCapacityContext {
-    int attemptNumber();
+@SdkPublicApi
+public final class RequestCapacityContext {
+    private final Integer attemptNumber;
+    private final SdkException latestFailure;
+    private final ExecutionAttributes executionAttributes;
 
-    SdkException latestFailure();
+    private RequestCapacityContext(Builder builder) {
+        this.attemptNumber = Validate.notNull(builder.attemptNumber, "attemptNumber");
+        this.latestFailure = builder.latestFailure;
+        this.executionAttributes = Validate.notNull(builder.executionAttributes, "executionAttributes");
+    }
 
-    ExecutionAttributes executionAttributes();
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public int attemptNumber() {
+        return attemptNumber;
+    }
+
+    public SdkException latestFailure() {
+        return latestFailure;
+    }
+
+    public ExecutionAttributes executionAttributes() {
+        return executionAttributes;
+    }
+
+    public static class Builder {
+        private Integer attemptNumber;
+        private SdkException latestFailure;
+        private ExecutionAttributes executionAttributes;
+
+        private Builder() {}
+
+        public Builder attemptNumber(int attemptNumber) {
+            this.attemptNumber = attemptNumber;
+            return this;
+        }
+
+        public Builder latestFailure(SdkException latestFailure) {
+            this.latestFailure = latestFailure;
+            return this;
+        }
+
+        public Builder executionAttributes(ExecutionAttributes executionAttributes) {
+            this.executionAttributes = executionAttributes;
+            return this;
+        }
+
+        public RequestCapacityContext build() {
+            return new RequestCapacityContext(this);
+        }
+    }
 }
