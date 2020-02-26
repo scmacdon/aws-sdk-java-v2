@@ -1,0 +1,26 @@
+## global variables used by the project
+#set( $symbol_pound = '#' )
+#set( $symbol_dollar = '$' )
+#set( $symbol_escape = '\' )
+## TODO: find a better way to handle this
+#if( $service == 'dynamodb')
+    #set ( $service = 'dynamoDb')
+#end
+#set ( $servicePackage = $service.toLowerCase())
+#set( $serviceClientPrefix = $service.substring(0,1).toUpperCase() + $service.substring(1))
+#set( $regionEnum = $region.replace("-", "_").toUpperCase() )
+#if( $httpClient == 'url-connection-client')
+    #set ($httpClientClassName = 'UrlConnectionHttpClient')
+    #set ($httpClientPackageName = 'urlconnection.' + $httpClientClassName)
+    #set ($serviceClientClassName = $serviceClientPrefix + 'Client')
+#elseif ( $httpClient == 'apache-client')
+    #set ($httpClientClassName = 'ApacheHttpClient')
+    #set ($httpClientPackageName = 'apache.' + $httpClientClassName)
+    #set ($serviceClientClassName = $serviceClientPrefix + 'Client')
+#elseif ( $httpClient == 'netty-nio-client')
+    #set ($httpClientClassName = 'NettyNioAsyncHttpClient')
+    #set ($httpClientPackageName = 'nio.netty.' + $httpClientClassName)
+    #set ($serviceClientClassName = $serviceClientPrefix + 'AsyncClient')
+#end
+#set( $servicePackage = $service.toLowerCase())
+#set( $serviceClientPrefix = $service.substring(0,1).toUpperCase() + $service.substring(1))

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archetype-descriptor xsi:schemaLocation="http://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.0.0 http://maven.apache.org/xsd/archetype-descriptor-1.0.0.xsd" name="zoewanglambdatesting"
+    xmlns="http://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <fileSets>
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/main/java</directory>
+      <includes>
+        <include>**/*.java</include>
+      </includes>
+    </fileSet>
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/test/java</directory>
+      <includes>
+        <include>**/*.java</include>
+      </includes>
+    </fileSet>
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory/>
+      <includes>
+        <include>.gitignore</include>
+        <include>template.yaml</include>
+      </includes>
+    </fileSet>
+  </fileSets>
+  <requiredProperties>
+    <requiredProperty key="handlerClassName">
+      <defaultValue>App</defaultValue>
+    </requiredProperty>
+    <requiredProperty key="service">
+    </requiredProperty>
+    <requiredProperty key="httpClient">
+      <defaultValue>url-connection-client</defaultValue>
+      <validationRegex>(url-connection-client|apache-client|netty-nio-client)</validationRegex>
+    </requiredProperty>
+    <requiredProperty key="region">
+     <validationRegex>^\w+-(\w+-)+\d+$</validationRegex>
+    </requiredProperty>
+  </requiredProperties>
+</archetype-descriptor>

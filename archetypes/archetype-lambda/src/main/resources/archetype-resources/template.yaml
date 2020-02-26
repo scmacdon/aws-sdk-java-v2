@@ -1,0 +1,11 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  ${handlerClassName}Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: java8
+      Handler: ${package}.${handlerClassName}::handleRequest
+      Timeout: 60
+      MemorySize: 512
+      CodeUri: ./target/${artifactId}.jar
