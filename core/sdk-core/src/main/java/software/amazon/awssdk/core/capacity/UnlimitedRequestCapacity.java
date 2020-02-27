@@ -17,21 +17,19 @@ package software.amazon.awssdk.core.capacity;
 
 import software.amazon.awssdk.annotations.SdkPublicApi;
 
+/**
+ * An implementation of {@link RequestCapacity} that never limits the number of requests sent by the client.
+ */
 @SdkPublicApi
-public final class DoNotThrottleRequestCapacity implements RequestCapacity {
-    private DoNotThrottleRequestCapacity() {}
+public final class UnlimitedRequestCapacity implements RequestCapacity {
+    private UnlimitedRequestCapacity() {}
 
     public static RequestCapacity create() {
-        return new DoNotThrottleRequestCapacity();
+        return new UnlimitedRequestCapacity();
     }
 
     @Override
     public boolean shouldAttemptRequest(RequestCapacityContext context) {
         return true;
-    }
-
-    @Override
-    public void requestSucceeded(RequestCapacityContext context) {
-
     }
 }

@@ -43,7 +43,6 @@ import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 @Immutable
 @SdkPublicApi
 public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder, RetryPolicy> {
-
     private final RetryCondition retryConditionFromBuilder;
     private final RetryCondition retryCondition;
     private final BackoffStrategy backoffStrategy;

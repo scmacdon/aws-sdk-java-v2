@@ -18,12 +18,23 @@ package software.amazon.awssdk.core.capacity;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.internal.capacity.DefaultRequestCapacity;
 import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 
+/**
+ * An interface used to limit the number of requests being sent to a service, regardless of the {@link RetryPolicy} configured
+ * on the client.
+ *
+ * <p>
+ * A {@link RetryPolicy} allows automatically
+ */
 @SdkPublicApi
+@FunctionalInterface
 public interface RequestCapacity {
     boolean shouldAttemptRequest(RequestCapacityContext context);
 
-    void requestSucceeded(RequestCapacityContext context);
+    default void requestSucceeded(RequestCapacityContext context) {
+
+    }
 
     static RequestCapacity defaultRequestCapacity() {
         return DefaultRequestCapacity.forRetryMode(RetryMode.defaultRetryModeInstance());
@@ -34,6 +45,6 @@ public interface RequestCapacity {
     }
 
     static RequestCapacity unlimited() {
-        return DoNotThrottleRequestCapacity.create();
+        return UnlimitedRequestCapacity.create();
     }
 }

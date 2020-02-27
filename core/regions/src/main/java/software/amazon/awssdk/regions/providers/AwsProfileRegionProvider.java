@@ -16,6 +16,7 @@
 package software.amazon.awssdk.regions.providers;
 
 import software.amazon.awssdk.annotations.SdkProtectedApi;
+import software.amazon.awssdk.annotations.SdkTestInternalApi;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.profiles.ProfileFileSystemSetting;
@@ -36,6 +37,7 @@ public final class AwsProfileRegionProvider implements AwsRegionProvider {
         this(ProfileFile.defaultProfileFileInstance());
     }
 
+    @SdkTestInternalApi
     public AwsProfileRegionProvider(ProfileFile profileFile) {
         this.profileFile = profileFile;
     }

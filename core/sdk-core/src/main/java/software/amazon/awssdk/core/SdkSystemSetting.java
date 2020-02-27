@@ -16,6 +16,9 @@
 package software.amazon.awssdk.core;
 
 import software.amazon.awssdk.annotations.SdkProtectedApi;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.utils.SystemSetting;
 
 /**
@@ -152,12 +155,15 @@ public enum SdkSystemSetting implements SystemSetting {
     AWS_S3_US_EAST_1_REGIONAL_ENDPOINT("aws.s3UseUsEast1RegionalEndpoint", null),
 
     /**
-     * The retry mode to use. TODO: More info.
+     * Which retry mode to use as the default value for {@link ClientOverrideConfiguration.Builder#retryMode(RetryMode)} if one
+     * is not specified at the client level.
      */
     AWS_RETRY_MODE("aws.retryMode", null),
 
     /**
-     * The max attempts to use. TODO: More info.
+     * Defines the default value for {@link RetryPolicy.Builder#numRetries(Integer)}, if the retry count is not overridden in the
+     * retry policy configured via {@link ClientOverrideConfiguration.Builder#retryPolicy(RetryPolicy)}. This is one more than
+     * the number of retries, so aws.maxAttempts = 1 implies zero retries.
      */
     AWS_MAX_ATTEMPTS("aws.maxAttempts", null),
 
