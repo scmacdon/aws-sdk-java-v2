@@ -26,7 +26,7 @@ public interface RequestCapacity {
     void requestSucceeded(RequestCapacityContext context);
 
     static RequestCapacity defaultRequestCapacity() {
-        return DefaultRequestCapacity.forRetryMode(RetryMode.defaultRetryMode());
+        return DefaultRequestCapacity.forRetryMode(RetryMode.defaultRetryModeInstance());
     }
 
     static RequestCapacity forRetryMode(RetryMode mode) {

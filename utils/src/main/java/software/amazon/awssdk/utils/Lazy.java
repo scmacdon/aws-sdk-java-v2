@@ -32,7 +32,8 @@ public class Lazy<T> {
         T result = value;
         if (result == null) {
             synchronized (this) {
-                if (value == null) {
+                result = value;
+                if (result == null) {
                     result = initializer.get();
                     value = result;
                 }

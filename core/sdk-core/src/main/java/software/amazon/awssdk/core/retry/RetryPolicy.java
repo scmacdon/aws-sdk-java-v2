@@ -129,10 +129,14 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
     }
 
     public static RetryPolicy defaultRetryPolicy() {
+        return forRetryMode(RetryMode.defaultRetryModeInstance());
+    }
+
+    public static RetryPolicy forRetryMode(RetryMode retryMode) {
         return RetryPolicy.builder()
                           .backoffStrategy(BackoffStrategy.defaultStrategy())
                           .throttlingBackoffStrategy(BackoffStrategy.defaultThrottlingStrategy())
-                          .numRetries(SdkDefaultRetrySetting.defaultMaxAttempts() - 1)
+                          .numRetries(SdkDefaultRetrySetting.maxAttempts(retryMode) - 1)
                           .retryCondition(RetryCondition.defaultRetryCondition())
                           .build();
     }
@@ -170,8 +174,7 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
      * Builder for a {@link RetryPolicy}.
      */
     private static final class BuilderImpl implements Builder {
-
-        private Integer numRetries = SdkDefaultRetrySetting.defaultMaxAttempts();
+        private Integer numRetries = SdkDefaultRetrySetting.defaultMaxAttempts() - 1;
         private BackoffStrategy backoffStrategy = BackoffStrategy.defaultStrategy();
         private BackoffStrategy throttlingBackoffStrategy = BackoffStrategy.defaultThrottlingStrategy();
         private RetryCondition retryCondition = RetryCondition.defaultRetryCondition();

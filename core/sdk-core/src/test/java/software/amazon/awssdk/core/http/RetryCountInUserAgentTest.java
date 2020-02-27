@@ -23,11 +23,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.junit.Assert.fail;
-import static software.amazon.awssdk.core.internal.retry.RetryHandler.HEADER_SDK_RETRY_INFO;
+import static software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting.SDK_RETRY_INFO_HEADER;
 import static software.amazon.awssdk.core.internal.util.ResponseHandlerTestUtils.combinedSyncResponseHandler;
 
 import org.junit.Test;
-
 import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.exception.SdkServiceException;
@@ -51,10 +50,10 @@ public class RetryCountInUserAgentTest extends WireMockTestBase {
 
         executeRequest();
 
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("0/0/")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("1/0/")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("2/10/")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("3/20/")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("0/0/")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("1/0/")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("2/10/")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("3/20/")));
     }
 
     @Test
@@ -63,10 +62,10 @@ public class RetryCountInUserAgentTest extends WireMockTestBase {
 
         executeRequest();
 
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("0/0/500")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("1/0/495")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("2/10/490")));
-        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(HEADER_SDK_RETRY_INFO, containing("3/20/485")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("0/0/500")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("1/0/495")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("2/10/490")));
+        verify(1, getRequestedFor(urlEqualTo(RESOURCE_PATH)).withHeader(SDK_RETRY_INFO_HEADER, containing("3/20/485")));
     }
 
     private void executeRequest() throws Exception {

@@ -15,7 +15,6 @@
 
 package software.amazon.awssdk.core.retry;
 
-import com.sun.tools.javac.util.StringUtils;
 import java.util.Optional;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.SdkSystemSetting;
@@ -24,35 +23,37 @@ import software.amazon.awssdk.profiles.ProfileFileSystemSetting;
 import software.amazon.awssdk.profiles.ProfileProperty;
 import software.amazon.awssdk.utils.Lazy;
 import software.amazon.awssdk.utils.OptionalUtils;
+import software.amazon.awssdk.utils.StringUtils;
 
 @SdkPublicApi
 public enum RetryMode {
     LEGACY,
     STANDARD;
 
-    private static final Lazy<RetryMode> DEFAULT_RETRY_MODE = new Lazy<>(RetryMode::fromDefaultChain);
+    private static final Lazy<RetryMode> DEFAULT_RETRY_MODE =
+        new Lazy<>(() -> RetryMode.fromDefaultChain(ProfileFile.defaultProfileFileInstance()));
 
-    public static RetryMode defaultRetryMode() {
+    public static RetryMode defaultRetryModeInstance() {
         return DEFAULT_RETRY_MODE.getValue();
     }
 
-    public static Optional<RetryMode> fromDefaultProfileFile() {
-        return fromProfileFile(ProfileFile.defaultProfileFile());
+    public static RetryMode defaultRetryMode() {
+        return RetryMode.fromDefaultChain(ProfileFile.defaultProfileFile());
     }
 
-    public static Optional<RetryMode> fromSystemSettings() {
-        return fromString(SdkSystemSetting.AWS_RETRY_MODE.getStringValueOrThrow());
+    private static Optional<RetryMode> fromSystemSettings() {
+        return SdkSystemSetting.AWS_RETRY_MODE.getStringValue()
+                                              .flatMap(RetryMode::fromString);
     }
 
-    public static Optional<RetryMode> fromProfileFile(ProfileFile profileFile) {
+    private static Optional<RetryMode> fromProfileFile(ProfileFile profileFile) {
         return profileFile.profile(ProfileFileSystemSetting.AWS_PROFILE.getStringValueOrThrow())
                           .flatMap(p -> p.property(ProfileProperty.RETRY_MODE))
                           .flatMap(RetryMode::fromString);
     }
 
-    private static RetryMode fromDefaultChain() {
-        return OptionalUtils.firstPresent(RetryMode.fromSystemSettings(),
-                                          RetryMode::fromDefaultProfileFile)
+    private static RetryMode fromDefaultChain(ProfileFile profileFile) {
+        return OptionalUtils.firstPresent(RetryMode.fromSystemSettings(), () -> fromProfileFile(profileFile))
                             .orElse(RetryMode.LEGACY);
     }
 
@@ -61,7 +62,7 @@ public enum RetryMode {
             return Optional.empty();
         }
 
-        switch (StringUtils.toLowerCase(string)) {
+        switch (StringUtils.lowerCase(string)) {
             case "legacy":
                 return Optional.of(LEGACY);
             case "standard":

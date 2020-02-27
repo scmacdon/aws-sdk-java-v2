@@ -37,6 +37,10 @@ public final class TokenBucketRequestCapacity implements RequestCapacity {
         return new Builder();
     }
 
+    public int currentCapacity() {
+        return capacity.currentCapacity();
+    }
+
     @Override
     public boolean shouldAttemptRequest(RequestCapacityContext context) {
         if (context.attemptNumber() == 1) {
@@ -44,6 +48,7 @@ public final class TokenBucketRequestCapacity implements RequestCapacity {
         }
 
         int costOfFailure = exceptionCostCalculator.apply(context.latestFailure());
+        Validate.isTrue(costOfFailure >= 0, "Cost of failure must not be negative, but was " + costOfFailure);
 
         context.executionAttributes().putAttribute(LAST_ACQUIRED_CAPACITY, costOfFailure);
 

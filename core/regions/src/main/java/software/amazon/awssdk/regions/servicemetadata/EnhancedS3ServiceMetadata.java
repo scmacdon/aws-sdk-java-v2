@@ -90,7 +90,7 @@ public final class EnhancedS3ServiceMetadata implements ServiceMetadata {
                 if (!profileSettingChecked) {
                     try {
                         String profileName = ProfileFileSystemSetting.AWS_PROFILE.getStringValueOrThrow();
-                        ProfileFile profileFile = ProfileFile.defaultProfileFile();
+                        ProfileFile profileFile = ProfileFile.defaultProfileFileInstance();
                         profileSetting = profileFile.profile(profileName)
                                 .flatMap(p -> p.property(ProfileProperty.S3_US_EAST_1_REGIONAL_ENDPOINT))
                                 .orElse(null);

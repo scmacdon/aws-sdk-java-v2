@@ -31,6 +31,7 @@ import software.amazon.awssdk.utils.Validate;
 
 @SdkInternalApi
 public final class SdkDefaultRetrySetting {
+    public static final String SDK_RETRY_INFO_HEADER = "amz-sdk-retry";
 
     /**
      * When throttled retries are enabled, each retry attempt will consume this much capacity.
@@ -76,25 +77,28 @@ public final class SdkDefaultRetrySetting {
 
     private SdkDefaultRetrySetting() {}
 
-    public static Integer defaultMaxAttempts() {
-        Integer defaultMaxAttempts = SdkSystemSetting.AWS_MAX_ATTEMPTS.getIntegerValue().orElse(null);
+    public static Integer maxAttempts(RetryMode retryMode) {
+        Integer maxAttempts = SdkSystemSetting.AWS_MAX_ATTEMPTS.getIntegerValue().orElse(null);
 
-        if (defaultMaxAttempts == null) {
-            RetryMode retryMode = RetryMode.defaultRetryMode();
+        if (maxAttempts == null) {
             switch (retryMode) {
                 case LEGACY:
-                    defaultMaxAttempts = 4;
+                    maxAttempts = 4;
                     break;
                 case STANDARD:
-                    defaultMaxAttempts = 3;
+                    maxAttempts = 3;
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown retry mode: " + retryMode);
             }
         }
 
-        Validate.isPositive(defaultMaxAttempts, "Maximum attempts must be positive, but was " + defaultMaxAttempts);
+        Validate.isPositive(maxAttempts, "Maximum attempts must be positive, but was " + maxAttempts);
 
-        return defaultMaxAttempts;
+        return maxAttempts;
+    }
+
+    public static Integer defaultMaxAttempts() {
+        return maxAttempts(RetryMode.defaultRetryModeInstance());
     }
 }

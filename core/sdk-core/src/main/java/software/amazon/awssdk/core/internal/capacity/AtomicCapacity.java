@@ -39,15 +39,19 @@ public class AtomicCapacity {
         while (true) {
             int currentCapacity = capacity.get();
 
-            if (currentCapacity < 0) {
+            int newCapacity = currentCapacity - amountToAcquire;
+            if (newCapacity < 0) {
                 return false;
             }
 
-            int newCapacity = currentCapacity - amountToAcquire;
             if (capacity.compareAndSet(currentCapacity, newCapacity)) {
                 return true;
             }
         }
+    }
+
+    public int currentCapacity() {
+        return capacity.get();
     }
 
     public void release(int amountToRelease) {
@@ -60,7 +64,7 @@ public class AtomicCapacity {
         while (true) {
             int currentCapacity = capacity.get();
 
-            if (currentCapacity >= maxCapacity) {
+            if (currentCapacity == maxCapacity) {
                 return;
             }
 

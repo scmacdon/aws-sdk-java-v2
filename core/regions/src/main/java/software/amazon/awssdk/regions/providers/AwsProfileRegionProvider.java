@@ -30,10 +30,19 @@ public final class AwsProfileRegionProvider implements AwsRegionProvider {
 
     private final String profileName = ProfileFileSystemSetting.AWS_PROFILE.getStringValueOrThrow();
 
+    private final ProfileFile profileFile;
+
+    public AwsProfileRegionProvider() {
+        this(ProfileFile.defaultProfileFileInstance());
+    }
+
+    public AwsProfileRegionProvider(ProfileFile profileFile) {
+        this.profileFile = profileFile;
+    }
+
     @Override
     public Region getRegion() {
-        return ProfileFile.defaultProfileFile()
-                          .profile(profileName)
+        return profileFile.profile(profileName)
                           .map(p -> p.properties().get(ProfileProperty.REGION))
                           .map(Region::of)
                           .orElseThrow(() -> SdkClientException.builder()

@@ -154,7 +154,7 @@ public enum SdkSystemSetting implements SystemSetting {
     /**
      * The retry mode to use. TODO: More info.
      */
-    AWS_RETRY_MODE("aws.retryMode", "legacy"),
+    AWS_RETRY_MODE("aws.retryMode", null),
 
     /**
      * The max attempts to use. TODO: More info.

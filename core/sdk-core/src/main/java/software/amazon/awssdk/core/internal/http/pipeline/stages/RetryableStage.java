@@ -20,141 +20,68 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.Response;
-import software.amazon.awssdk.core.SdkStandardLogger;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
-import software.amazon.awssdk.core.client.config.SdkClientOption;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.internal.http.HttpClientDependencies;
-import software.amazon.awssdk.core.internal.http.InterruptMonitor;
 import software.amazon.awssdk.core.internal.http.RequestExecutionContext;
 import software.amazon.awssdk.core.internal.http.pipeline.RequestPipeline;
 import software.amazon.awssdk.core.internal.http.pipeline.RequestToResponsePipeline;
-import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
-import software.amazon.awssdk.core.internal.retry.RetryHandler;
-import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.core.internal.http.pipeline.stages.utils.RetryableStageHelper;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
-import software.amazon.awssdk.utils.Logger;
 
 /**
- * Wrapper around the pipeline for a single request to provide retry functionality.
+ * Wrapper around the pipeline for a single request to provide retry, clockskew and request throttling functionality.
  */
 @SdkInternalApi
 public final class RetryableStage<OutputT> implements RequestToResponsePipeline<OutputT> {
-
-    private static final Logger log = Logger.loggerFor(RetryableStage.class);
-
     private final RequestPipeline<SdkHttpFullRequest, Response<OutputT>> requestPipeline;
 
     private final HttpClientDependencies dependencies;
-    private final RetryPolicy retryPolicy;
-    private final RequestCapacity requestCapacity;
 
     public RetryableStage(HttpClientDependencies dependencies,
                           RequestPipeline<SdkHttpFullRequest, Response<OutputT>> requestPipeline) {
         this.dependencies = dependencies;
-        this.retryPolicy = dependencies.clientConfiguration().option(SdkClientOption.RETRY_POLICY);
-        this.requestCapacity = dependencies.clientConfiguration().option(SdkClientOption.REQUEST_CAPACITY);
         this.requestPipeline = requestPipeline;
     }
 
     public Response<OutputT> execute(SdkHttpFullRequest request, RequestExecutionContext context) throws Exception {
-        return new RetryExecutor(request, context).execute();
-    }
+        RetryableStageHelper retryableStageHelper = new RetryableStageHelper(request, context, dependencies);
 
-    /**
-     * Created for every request to encapsulate mutable state between retries.
-     */
-    private class RetryExecutor {
+        while (true) {
+            retryableStageHelper.startingAttempt();
 
-        private final SdkHttpFullRequest request;
-        private final RequestExecutionContext context;
-        private final RetryHandler retryHandler;
-
-        private int requestCount = 0;
-
-        private RetryExecutor(SdkHttpFullRequest request, RequestExecutionContext context) {
-            this.request = request;
-            this.context = context;
-            this.retryHandler = new RetryHandler(retryPolicy, requestCapacity);
-        }
-
-        public Response<OutputT> execute() throws Exception {
-            while (true) {
-                try {
-                    beforeExecute();
-                    Response<OutputT> response = doExecute();
-                    if (response.isSuccess()) {
-                        retryHandler.releaseRetryCapacity();
-                        return response;
-                    } else {
-                        retryHandler.setLastRetriedException(handleUnmarshalledException(response));
-                    }
-                } catch (SdkClientException | IOException e) {
-                    retryHandler.setLastRetriedException(handleThrownException(e));
-                }
-            }
-        }
-
-        private void beforeExecute() throws InterruptedException {
-            retryHandler.retryCapacityConsumed(false);
-            InterruptMonitor.checkInterrupted();
-            ++requestCount;
-        }
-
-        private Response<OutputT> doExecute() throws Exception {
-            if (retryHandler.isRetry()) {
-                doPauseBeforeRetry();
+            if (!retryableStageHelper.retryPolicyAllowsRetry()) {
+                throw retryableStageHelper.retryPolicyDisallowedRetryException();
             }
 
-            SdkStandardLogger.REQUEST_LOGGER.debug(() -> (retryHandler.isRetry() ? "Retrying " : "Sending ") + "Request: " +
-                                                         request);
-
-            return requestPipeline.execute(retryHandler.addRetryInfoHeader(request, requestCount), context);
-        }
-
-        private SdkException handleUnmarshalledException(Response<OutputT> response) {
-            SdkException exception = response.exception();
-
-            ClockSkewAdjuster clockSkewAdjuster = dependencies.clockSkewAdjuster();
-            if (clockSkewAdjuster.shouldAdjust(exception)) {
-                dependencies.updateTimeOffset(clockSkewAdjuster.getAdjustmentInSeconds(response.httpResponse()));
+            if (!retryableStageHelper.requestCapacityAllowsRequest()) {
+                throw retryableStageHelper.requestCapacityDisallowedRequestException();
             }
 
-            if (!retryHandler.shouldRetry(response.httpResponse(), request, context, exception, requestCount)) {
-                throw exception;
+            Duration backoffDelay = retryableStageHelper.getBackoffDelay();
+            if (!backoffDelay.isZero()) {
+                retryableStageHelper.logBackingOff(backoffDelay);
+                TimeUnit.MILLISECONDS.sleep(backoffDelay.toMillis());
             }
 
-            return exception;
-        }
-
-        private SdkException handleThrownException(Exception e) {
-            SdkClientException sdkClientException = e instanceof SdkClientException ?
-                    (SdkClientException) e : SdkClientException.builder()
-                                                               .message("Unable to execute HTTP request: " + e.getMessage())
-                                                               .cause(e)
-                                                               .build();
-            boolean willRetry = retryHandler.shouldRetry(null, request, context, sdkClientException, requestCount);
-
-            log.debug(() -> sdkClientException.getMessage() + (willRetry ? " Request will be retried." : ""), e);
-
-            if (!willRetry) {
-                throw sdkClientException;
+            Response<OutputT> response;
+            try {
+                retryableStageHelper.logSendingRequest();
+                response = requestPipeline.execute(retryableStageHelper.requestToSend(), context);
+            } catch (SdkException | IOException e) {
+                retryableStageHelper.setLastException(e);
+                continue;
             }
 
-            return sdkClientException;
-        }
+            retryableStageHelper.setLastResponse(response.httpResponse());
 
-        /**
-         * Sleep for a period of time on failed request to avoid flooding a service with retries.
-         */
-        private void doPauseBeforeRetry() throws InterruptedException {
-            int retriesAttempted = requestCount - 2;
-            Duration delay = retryHandler.computeDelayBeforeNextRetry();
+            if (!response.isSuccess()) {
+                retryableStageHelper.adjustClockIfClockSkew(response);
+                retryableStageHelper.setLastException(response.exception());
+                continue;
+            }
 
-            SdkStandardLogger.REQUEST_LOGGER.debug(() -> "Retryable error detected, will retry in " + delay.toMillis() + "ms,"
-                                                         + " attempt number " + retriesAttempted);
-            TimeUnit.MILLISECONDS.sleep(delay.toMillis());
+            retryableStageHelper.attemptSucceeded();
+            return response;
         }
     }
 }

@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.annotations.SdkTestInternalApi;
 import software.amazon.awssdk.utils.Logger;
 
 /**
@@ -27,11 +28,12 @@ import software.amazon.awssdk.utils.Logger;
 @SdkInternalApi
 public final class UseArnRegionProviderChain implements UseArnRegionProvider {
     private static final Logger log = Logger.loggerFor(UseArnRegionProvider.class);
-    private static final List<UseArnRegionProvider> DEFAULT_PROVIDERS =
-        Arrays.asList(SystemsSettingsUseArnRegionProvider.create(), ProfileUseArnRegionProvider.create());
-    private static final UseArnRegionProviderChain INSTANCE = new UseArnRegionProviderChain();
+    private static final UseArnRegionProviderChain INSTANCE = new UseArnRegionProviderChain(providers(true));
 
-    private UseArnRegionProviderChain() {
+    private final List<UseArnRegionProvider> providers;
+
+    private UseArnRegionProviderChain(List<UseArnRegionProvider> providers) {
+        this.providers = providers;
     }
 
     /**
@@ -49,9 +51,22 @@ public final class UseArnRegionProviderChain implements UseArnRegionProvider {
         return INSTANCE;
     }
 
+    @SdkTestInternalApi
+    static UseArnRegionProviderChain createWithoutCache() {
+        return new UseArnRegionProviderChain(providers(false));
+    }
+
+    private static List<UseArnRegionProvider> providers(boolean cache) {
+        if (cache) {
+            return Arrays.asList(SystemsSettingsUseArnRegionProvider.create(), ProfileUseArnRegionProvider.createWithoutCache());
+        } else {
+            return Arrays.asList(SystemsSettingsUseArnRegionProvider.create(), ProfileUseArnRegionProvider.create());
+        }
+    }
+
     @Override
     public Optional<Boolean> resolveUseArnRegion() {
-        for (UseArnRegionProvider provider : DEFAULT_PROVIDERS) {
+        for (UseArnRegionProvider provider : providers(true)) {
             try {
                 Optional<Boolean> useArnRegion = provider.resolveUseArnRegion();
                 if (useArnRegion.isPresent()) {

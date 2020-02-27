@@ -18,6 +18,8 @@ package software.amazon.awssdk.core.retry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
+import com.sun.javafx.runtime.SystemProperties;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -79,5 +81,27 @@ public class RetryPolicyTest {
         assertThat(noneRetry.numRetries()).isZero();
         assertThat(noneRetry.backoffStrategy()).isEqualTo(BackoffStrategy.none());
         assertThat(noneRetry.throttlingBackoffStrategy()).isEqualTo(BackoffStrategy.none());
+    }
+
+    @Test
+    public void maxRetriesFromRetryModeIsCorrect() {
+        assertThat(RetryPolicy.forRetryMode(RetryMode.LEGACY).numRetries()).isEqualTo(3);
+        assertThat(RetryPolicy.forRetryMode(RetryMode.STANDARD).numRetries()).isEqualTo(2);
+    }
+
+    @Test
+    public void maxRetriesFromDefaultRetryModeIsCorrect() {
+        switch (RetryMode.defaultRetryModeInstance()) {
+            case LEGACY:
+                assertThat(RetryPolicy.defaultRetryPolicy().numRetries()).isEqualTo(3);
+                assertThat(RetryPolicy.builder().build().numRetries()).isEqualTo(3);
+                break;
+            case STANDARD:
+                assertThat(RetryPolicy.defaultRetryPolicy().numRetries()).isEqualTo(2);
+                assertThat(RetryPolicy.builder().build().numRetries()).isEqualTo(2);
+                break;
+            default:
+                Assert.fail();
+        }
     }
 }

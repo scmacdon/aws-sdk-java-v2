@@ -25,6 +25,7 @@ import software.amazon.awssdk.core.ClientType;
 import software.amazon.awssdk.core.ServiceConfiguration;
 import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
@@ -44,6 +45,8 @@ public final class SdkClientOption<T> extends ClientOption<T> {
      * @see ClientOverrideConfiguration#retryPolicy()
      */
     public static final SdkClientOption<RetryPolicy> RETRY_POLICY = new SdkClientOption<>(RetryPolicy.class);
+
+    public static final SdkClientOption<RetryMode> RETRY_MODE = new SdkClientOption<>(RetryMode.class);
 
     public static final SdkClientOption<RequestCapacity> REQUEST_CAPACITY = new SdkClientOption<>(RequestCapacity.class);
 

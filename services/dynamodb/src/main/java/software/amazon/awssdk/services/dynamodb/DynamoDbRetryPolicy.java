@@ -15,10 +15,14 @@
 
 package software.amazon.awssdk.services.dynamodb;
 
+import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_MODE;
+
 import java.time.Duration;
-import software.amazon.awssdk.annotations.SdkProtectedApi;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.awscore.retry.AwsRetryPolicy;
+import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.backoff.BackoffStrategy;
 import software.amazon.awssdk.core.retry.backoff.FullJitterBackoffStrategy;
@@ -26,44 +30,57 @@ import software.amazon.awssdk.core.retry.backoff.FullJitterBackoffStrategy;
 /**
  * Default retry policy for DynamoDB Client.
  */
-@SdkProtectedApi
-public final class DynamoDbRetryPolicy {
-
-    /** Default max retry count for DynamoDB client **/
-    private static final int DEFAULT_MAX_ERROR_RETRY = 8;
+@SdkInternalApi
+final class DynamoDbRetryPolicy {
 
     /**
-     * Default base sleep time for DynamoDB.
+     * Default max retry count for DynamoDB client, when using the LEGACY retry mode.
      **/
-    private static final Duration DEFAULT_BASE_DELAY = Duration.ofMillis(25);
+    private static final int LEGACY_MAX_ERROR_RETRY = 8;
+
+    /**
+     * Default base sleep time for DynamoDB, when using the LEGACY retry mode.
+     **/
+    private static final Duration LEGACY_BASE_DELAY = Duration.ofMillis(25);
 
     /**
      * The default back-off strategy for DynamoDB client, which increases
      * exponentially up to a max amount of delay. Compared to the SDK default
      * back-off strategy, it applies a smaller scale factor.
+     *
+     * This is only used when using the LEGACY retry mode.
      */
-    private static final BackoffStrategy DEFAULT_BACKOFF_STRATEGY =
+    private static final BackoffStrategy LEGACY_BACKOFF_STRATEGY =
         FullJitterBackoffStrategy.builder()
-                                 .baseDelay(DEFAULT_BASE_DELAY)
+                                 .baseDelay(LEGACY_BASE_DELAY)
                                  .maxBackoffTime(SdkDefaultRetrySetting.MAX_BACKOFF)
                                  .build();
 
     /**
-     * Default retry policy for DynamoDB.
+     * Default retry policy for DynamoDB, when using the LEGACY retry mode.
      */
-    private static final RetryPolicy DEFAULT =
-        AwsRetryPolicy.defaultRetryPolicy().toBuilder()
-                      .numRetries(DEFAULT_MAX_ERROR_RETRY)
-                      .backoffStrategy(DEFAULT_BACKOFF_STRATEGY).build();
+    private static final RetryPolicy LEGACY =
+        AwsRetryPolicy.defaultRetryPolicy()
+                      .toBuilder()
+                      .numRetries(LEGACY_MAX_ERROR_RETRY)
+                      .backoffStrategy(LEGACY_BACKOFF_STRATEGY)
+                      .build();
 
-    private DynamoDbRetryPolicy() {
-
-    }
+    private DynamoDbRetryPolicy() {}
 
     /**
      * @return Default retry policy used by DynamoDbClient
      */
-    public static RetryPolicy defaultPolicy() {
-        return DEFAULT;
+    public static RetryPolicy defaultPolicy(SdkClientConfiguration config) {
+        RetryMode retryMode = config.option(RETRY_MODE);
+        if (retryMode == null) {
+            retryMode = RetryMode.defaultRetryModeInstance();
+        }
+
+        if (retryMode != RetryMode.LEGACY) {
+            return RetryPolicy.forRetryMode(retryMode);
+        }
+
+        return LEGACY;
     }
 }

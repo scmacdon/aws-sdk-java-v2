@@ -177,7 +177,7 @@ public final class ProfileCredentialsProvider implements AwsCredentialsProvider,
         private ProfileFile profileFile;
         private String profileName;
 
-        private Supplier<ProfileFile> defaultProfileFileLoader = ProfileFile::defaultProfileFile;
+        private Supplier<ProfileFile> defaultProfileFileLoader = ProfileFile::defaultProfileFileInstance;
 
         BuilderImpl() {
         }

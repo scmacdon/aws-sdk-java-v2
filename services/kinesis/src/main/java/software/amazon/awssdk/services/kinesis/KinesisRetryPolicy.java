@@ -15,37 +15,37 @@
 
 package software.amazon.awssdk.services.kinesis;
 
+import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_MODE;
+
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.awscore.retry.AwsRetryPolicy;
+import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
+import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.conditions.AndRetryCondition;
 import software.amazon.awssdk.services.kinesis.model.SubscribeToShardRequest;
 
 /**
- * Default retry policy for the Kinesis Client.
+ * Default retry policy for the Kinesis Client. Disables retries on subscribe-to-shard.
  */
 @SdkInternalApi
 final class KinesisRetryPolicy {
+    private KinesisRetryPolicy() {}
 
-    /**
-     * Default retry policy for Kinesis. Turns off retries for SubscribeToShard
-     */
-    private static final RetryPolicy DEFAULT =
-        AwsRetryPolicy.defaultRetryPolicy().toBuilder()
-                      .retryCondition(AndRetryCondition.create(
-                          c -> !(c.originalRequest() instanceof SubscribeToShardRequest),
-                          AwsRetryPolicy.defaultRetryCondition()))
-                      .build();
+    public static RetryPolicy defaultPolicy(SdkClientConfiguration config) {
+        RetryMode retryMode = config.option(RETRY_MODE);
+        RetryPolicy baseRetryPolicy = retryMode == null ? AwsRetryPolicy.defaultRetryPolicy()
+                                                        : AwsRetryPolicy.forRetryMode(retryMode);
 
-    private KinesisRetryPolicy() {
-
+        return baseRetryPolicy.toBuilder()
+                              .retryCondition(AndRetryCondition.create(KinesisRetryPolicy::isNotSubscribeToShard,
+                                                                       AwsRetryPolicy.defaultRetryCondition()))
+                              .build();
     }
 
-    /**
-     * @return Default retry policy used by Kinesis
-     */
-    public static RetryPolicy defaultPolicy() {
-        return DEFAULT;
+    private static boolean isNotSubscribeToShard(RetryPolicyContext context) {
+        return !(context.originalRequest() instanceof SubscribeToShardRequest);
     }
 }
 

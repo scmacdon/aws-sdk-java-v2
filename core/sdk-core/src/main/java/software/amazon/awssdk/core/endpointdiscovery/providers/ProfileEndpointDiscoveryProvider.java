@@ -35,7 +35,7 @@ public class ProfileEndpointDiscoveryProvider implements EndpointDiscoveryProvid
 
     @Override
     public boolean resolveEndpointDiscovery() {
-        return ProfileFile.defaultProfileFile()
+        return ProfileFile.defaultProfileFileInstance()
                           .profile(profileName)
                           .map(p -> p.properties().get(ProfileProperty.ENDPOINT_DISCOVERY_ENABLED))
                           .map(Boolean::parseBoolean)

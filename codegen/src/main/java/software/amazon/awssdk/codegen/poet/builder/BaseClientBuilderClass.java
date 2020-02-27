@@ -160,7 +160,7 @@ public class BaseClientBuilderClass implements ClassSpec {
                                                         SdkClientOption.class, crc32FromCompressedDataEnabled);
 
         if (StringUtils.isNotBlank(model.getCustomizationConfig().getCustomRetryPolicy())) {
-            builder.addCode(".option($T.RETRY_POLICY, $T.defaultPolicy())", SdkClientOption.class,
+            builder.addCode(".option($T.RETRY_POLICY, $T.defaultPolicy(config))", SdkClientOption.class,
                             PoetUtils.classNameFromFqcn(model.getCustomizationConfig().getCustomRetryPolicy()));
         }
         builder.addCode(");");
