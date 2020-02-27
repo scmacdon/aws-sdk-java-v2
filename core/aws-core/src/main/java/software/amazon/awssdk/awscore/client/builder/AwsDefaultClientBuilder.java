@@ -117,7 +117,6 @@ public abstract class AwsDefaultClientBuilder<BuilderT extends AwsClientBuilder<
         return config.merge(c -> c.option(AwsClientOption.AWS_REGION, resolveRegion(config))
                                   .option(AwsAdvancedClientOption.ENABLE_DEFAULT_REGION_DETECTION, true)
                                   .option(AwsClientOption.CREDENTIALS_PROVIDER, DefaultCredentialsProvider.create())
-                                  .option(SdkClientOption.RETRY_POLICY, AwsRetryPolicy.defaultRetryPolicy())
                                   .option(SdkAdvancedClientOption.DISABLE_HOST_PREFIX_INJECTION, false)
                                   .option(AwsClientOption.SERVICE_SIGNING_NAME, signingName())
                                   .option(SdkClientOption.SERVICE_NAME, serviceName())

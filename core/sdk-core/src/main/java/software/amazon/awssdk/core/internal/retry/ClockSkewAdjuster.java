@@ -31,7 +31,7 @@ import software.amazon.awssdk.utils.Logger;
  */
 @ThreadSafe
 @SdkInternalApi
-public final class ClockSkewAdjuster {
+public class ClockSkewAdjuster {
     private static final Logger log = Logger.loggerFor(ClockSkewAdjuster.class);
 
     /**
