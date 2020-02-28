@@ -194,7 +194,9 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
      * Builder for a {@link RetryPolicy}.
      */
     private static final class BuilderImpl implements Builder {
-        private RetryMode retryMode;
+        private final RetryMode retryMode;
+        private boolean isDefaultCondition = true;
+
         private Integer numRetries;
         private boolean outageCompensationEnabled;
         private BackoffStrategy backoffStrategy;
@@ -272,6 +274,7 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
 
         @Override
         public Builder retryCondition(RetryCondition retryCondition) {
+            this.isDefaultCondition = false;
             this.retryCondition = retryCondition;
             return this;
         }
