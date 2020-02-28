@@ -94,11 +94,6 @@ public final class AsyncRetryableStage<OutputT> implements RequestPipeline<SdkHt
                 context.requestProvider(originalRequestBody);
             }
 
-            if (!retryableStageHelper.requestCapacityAllowsRequest()) {
-                future.completeExceptionally(retryableStageHelper.requestCapacityDisallowedRequestException());
-                return;
-            }
-
             Duration backoffDelay = retryableStageHelper.getBackoffDelay();
             if (!backoffDelay.isZero()) {
                 retryableStageHelper.logBackingOff(backoffDelay);

@@ -15,8 +15,10 @@
 
 package software.amazon.awssdk.core.internal.capacity;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition.Capacity;
 import software.amazon.awssdk.utils.Validate;
 
 @SdkInternalApi
@@ -29,11 +31,14 @@ public class AtomicCapacity {
         this.capacity = new AtomicInteger(capacity);
     }
 
-    public boolean tryAcquire(int amountToAcquire) {
+    public Optional<Capacity> tryAcquire(int amountToAcquire) {
         Validate.isTrue(amountToAcquire >= 0, "Amount must not be negative.");
 
         if (amountToAcquire == 0) {
-            return true;
+            return Optional.of(Capacity.builder()
+                                       .capacityAcquired(0)
+                                       .capacityRemaining(capacity.get())
+                                       .build());
         }
 
         while (true) {
@@ -41,11 +46,14 @@ public class AtomicCapacity {
 
             int newCapacity = currentCapacity - amountToAcquire;
             if (newCapacity < 0) {
-                return false;
+                return Optional.empty();
             }
 
             if (capacity.compareAndSet(currentCapacity, newCapacity)) {
-                return true;
+                return Optional.of(Capacity.builder()
+                                           .capacityAcquired(amountToAcquire)
+                                           .capacityRemaining(newCapacity)
+                                           .build());
             }
         }
     }

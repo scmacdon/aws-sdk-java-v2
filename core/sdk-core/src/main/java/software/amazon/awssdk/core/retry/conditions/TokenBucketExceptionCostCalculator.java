@@ -13,7 +13,7 @@
  * permissions and limitations under the License.
  */
 
-package software.amazon.awssdk.core.capacity;
+package software.amazon.awssdk.core.retry.conditions;
 
 import java.util.function.Function;
 import software.amazon.awssdk.annotations.SdkPublicApi;

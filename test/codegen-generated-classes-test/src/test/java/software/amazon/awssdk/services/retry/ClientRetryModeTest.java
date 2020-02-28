@@ -33,24 +33,39 @@ import org.junit.Rule;
 import org.junit.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
-import software.amazon.awssdk.core.capacity.RequestCapacityContext;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.protocolrestjson.ProtocolRestJsonClient;
 import software.amazon.awssdk.services.protocolrestjson.ProtocolRestJsonClientBuilder;
 
-public class ClientRequestCapacityTest {
+public class ClientRetryModeTest {
     @Rule
     public WireMockRule wireMock = new WireMockRule(0);
 
     @Test
-    public void legacyRequestCapacityExcludesThrottlingExceptions() throws InterruptedException {
+    public void legacyRetryModeIsFourAttempts() {
+        stubThrottlingResponse();
+        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryPolicy(RetryMode.LEGACY)).build();
+        assertThatThrownBy(client::allTypes).isInstanceOf(SdkException.class);
+        verifyRequestCount(4);
+    }
+
+    @Test
+    public void standardRetryModeIsThreeAttempts() {
+        stubThrottlingResponse();
+        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryPolicy(RetryMode.STANDARD)).build();
+        assertThatThrownBy(client::allTypes).isInstanceOf(SdkException.class);
+        verifyRequestCount(3);
+    }
+
+    @Test
+    public void legacyRetryModeExcludesThrottlingExceptions() throws InterruptedException {
         stubThrottlingResponse();
 
         ExecutorService executor = Executors.newFixedThreadPool(51);
-        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryMode(RetryMode.LEGACY)).build();
+        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryPolicy(RetryMode.LEGACY)).build();
+
         for (int i = 0; i < 51; ++i) {
             executor.execute(() -> assertThatThrownBy(client::allTypes).isInstanceOf(SdkException.class));
         }
@@ -62,11 +77,12 @@ public class ClientRequestCapacityTest {
     }
 
     @Test
-    public void standardRequestCapacityIncludesThrottlingExceptions() throws InterruptedException {
+    public void standardRetryModeIncludesThrottlingExceptions() throws InterruptedException {
         stubThrottlingResponse();
 
         ExecutorService executor = Executors.newFixedThreadPool(51);
-        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryMode(RetryMode.STANDARD)).build();
+        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.retryPolicy(RetryMode.STANDARD)).build();
+
         for (int i = 0; i < 51; ++i) {
             executor.execute(() -> assertThatThrownBy(client::allTypes).isInstanceOf(SdkException.class));
         }
@@ -75,15 +91,6 @@ public class ClientRequestCapacityTest {
 
         // Would receive 153 without throttling (51 requests * 3 attempts = 153 requests)
         verifyRequestCount(151);
-    }
-
-    @Test
-    public void customRequestCapacityOverridesConfiguredRetryMode() {
-        stubThrottlingResponse();
-        ProtocolRestJsonClient client = clientBuilder().overrideConfiguration(o -> o.requestCapacity(new NoRetriesCapacity())
-                                                                                    .retryMode(RetryMode.LEGACY)).build();
-        assertThatThrownBy(client::allTypes).isInstanceOf(SdkException.class);
-        verifyRequestCount(1);
     }
 
     private ProtocolRestJsonClientBuilder clientBuilder() {
@@ -100,17 +107,5 @@ public class ClientRequestCapacityTest {
     private void stubThrottlingResponse() {
         stubFor(post(anyUrl())
                     .willReturn(aResponse().withStatus(429)));
-    }
-
-    private class NoRetriesCapacity implements RequestCapacity {
-        @Override
-        public boolean shouldAttemptRequest(RequestCapacityContext context) {
-            return context.attemptNumber() < 2;
-        }
-
-        @Override
-        public void requestSucceeded(RequestCapacityContext context) {
-
-        }
     }
 }

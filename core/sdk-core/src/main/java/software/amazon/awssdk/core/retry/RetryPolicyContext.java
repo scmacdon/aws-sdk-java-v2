@@ -16,7 +16,6 @@
 package software.amazon.awssdk.core.retry;
 
 import software.amazon.awssdk.annotations.Immutable;
-import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.SdkRequest;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -38,6 +37,7 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
     private final SdkException exception;
     private final ExecutionAttributes executionAttributes;
     private final int retriesAttempted;
+    private final int totalRequests;
     private final Integer httpStatusCode;
 
     private RetryPolicyContext(Builder builder) {
@@ -46,10 +46,10 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
         this.exception = builder.exception;
         this.executionAttributes = builder.executionAttributes;
         this.retriesAttempted = builder.retriesAttempted;
+        this.totalRequests = builder.totalRequests;
         this.httpStatusCode = builder.httpStatusCode;
     }
 
-    @SdkInternalApi
     public static Builder builder() {
         return new Builder();
     }
@@ -93,7 +93,7 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
      * @return The total number of requests made thus far.
      */
     public int totalRequests() {
-        return retriesAttempted() + 1;
+        return this.totalRequests;
     }
 
     /**
@@ -108,14 +108,14 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
         return new Builder(this);
     }
 
-    @SdkInternalApi
+    @SdkPublicApi
     public static final class Builder implements CopyableBuilder<Builder, RetryPolicyContext> {
-
         private SdkRequest originalRequest;
         private SdkHttpFullRequest request;
         private SdkException exception;
         private ExecutionAttributes executionAttributes;
         private int retriesAttempted;
+        private int totalRequests;
         private Integer httpStatusCode;
 
         private Builder() {
@@ -127,6 +127,7 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
             this.exception = copy.exception;
             this.executionAttributes = copy.executionAttributes;
             this.retriesAttempted = copy.retriesAttempted;
+            this.totalRequests = copy.totalRequests;
             this.httpStatusCode = copy.httpStatusCode;
         }
 
@@ -152,6 +153,11 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
 
         public Builder retriesAttempted(int retriesAttempted) {
             this.retriesAttempted = retriesAttempted;
+            return this;
+        }
+
+        public Builder totalRequests(int totalRequests) {
+            this.totalRequests = totalRequests;
             return this;
         }
 

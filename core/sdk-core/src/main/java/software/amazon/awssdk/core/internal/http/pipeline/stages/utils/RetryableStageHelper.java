@@ -22,10 +22,6 @@ import java.util.concurrent.CompletionException;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.Response;
 import software.amazon.awssdk.core.SdkStandardLogger;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
-import software.amazon.awssdk.core.capacity.RequestCapacityContext;
-import software.amazon.awssdk.core.capacity.RequestCapacityExceededException;
-import software.amazon.awssdk.core.capacity.TokenBucketRequestCapacity;
 import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.exception.NonRetryableException;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -37,6 +33,7 @@ import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.RetryUtils;
+import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.http.SdkHttpResponse;
 
@@ -45,7 +42,6 @@ public class RetryableStageHelper {
     private final SdkHttpFullRequest request;
     private final RequestExecutionContext context;
     private final RetryPolicy retryPolicy;
-    private final RequestCapacity requestCapacity;
     private final HttpClientDependencies dependencies;
 
     private int attemptNumber = 0;
@@ -59,7 +55,6 @@ public class RetryableStageHelper {
         this.request = request;
         this.context = context;
         this.retryPolicy = dependencies.clientConfiguration().option(SdkClientOption.RETRY_POLICY);
-        this.requestCapacity = dependencies.clientConfiguration().option(SdkClientOption.REQUEST_CAPACITY);
         this.dependencies = dependencies;
     }
 
@@ -77,7 +72,7 @@ public class RetryableStageHelper {
             return false;
         }
 
-        return retryPolicy.retryCondition().shouldRetry(retryPolicyContext());
+        return retryPolicy.retryCondition().shouldRetry(retryPolicyContext(true));
     }
 
     public SdkException retryPolicyDisallowedRetryException() {
@@ -89,9 +84,9 @@ public class RetryableStageHelper {
         if (!isRetry()) {
             result = Duration.ZERO;
         } else if (RetryUtils.isThrottlingException(lastException)) {
-            result = retryPolicy.throttlingBackoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext());
+            result = retryPolicy.throttlingBackoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext(true));
         } else {
-            result = retryPolicy.backoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext());
+            result = retryPolicy.backoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext(true));
         }
         lastBackoffDelay = result;
         return result;
@@ -103,24 +98,12 @@ public class RetryableStageHelper {
                                                      attemptNumber);
     }
 
-    public boolean requestCapacityAllowsRequest() {
-        return requestCapacity.shouldAttemptRequest(requestCapacityContext());
-    }
-
-    public SdkException requestCapacityDisallowedRequestException() {
-        SdkStandardLogger.REQUEST_LOGGER.debug(() -> "No request capacity exists to make this request.");
-        if (lastException == null) {
-            return RequestCapacityExceededException.create("Request capacity exceeded on this client.");
-        } else {
-            return lastException;
-        }
-    }
-
     public SdkHttpFullRequest requestToSend() {
-        if (requestCapacity instanceof TokenBucketRequestCapacity) {
-            TokenBucketRequestCapacity capacity = (TokenBucketRequestCapacity) requestCapacity;
+        Integer availableRetryCapacity = TokenBucketRetryCondition.getCapacityForExecution(context.executionAttributes())
+                                                                  .map(TokenBucketRetryCondition.Capacity::capacityRemaining)
+                                                                  .orElse(null);
 
-            int availableRetryCapacity = capacity.currentCapacity();
+        if (availableRetryCapacity != null) {
             return request.toBuilder()
                           .putHeader(SDK_RETRY_INFO_HEADER,
                                      String.format("%s/%s/%s",
@@ -145,7 +128,7 @@ public class RetryableStageHelper {
     }
 
     public void attemptSucceeded() {
-        requestCapacity.requestSucceeded(requestCapacityContext());
+        retryPolicy.retryCondition().requestSucceeded(retryPolicyContext(false));
     }
 
 
@@ -176,22 +159,15 @@ public class RetryableStageHelper {
         return attemptNumber > 1;
     }
 
-    private RetryPolicyContext retryPolicyContext() {
+    private RetryPolicyContext retryPolicyContext(boolean isBeforeAttemptSent) {
         return RetryPolicyContext.builder()
                                  .request(request)
                                  .originalRequest(context.originalRequest())
                                  .exception(lastException)
-                                 .retriesAttempted(attemptNumber - 2)
+                                 .retriesAttempted(isBeforeAttemptSent ? attemptNumber - 2 : attemptNumber - 1)
+                                 .totalRequests(isBeforeAttemptSent ? attemptNumber - 1 : attemptNumber)
                                  .executionAttributes(context.executionAttributes())
                                  .httpStatusCode(lastResponse == null ? null : lastResponse.statusCode())
                                  .build();
-    }
-
-    private RequestCapacityContext requestCapacityContext() {
-        return RequestCapacityContext.builder()
-                                     .attemptNumber(attemptNumber)
-                                     .latestFailure(lastException)
-                                     .executionAttributes(context.executionAttributes())
-                                     .build();
     }
 }

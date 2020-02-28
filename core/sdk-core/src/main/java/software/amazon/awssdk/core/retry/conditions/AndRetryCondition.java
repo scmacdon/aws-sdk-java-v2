@@ -35,6 +35,10 @@ public final class AndRetryCondition implements RetryCondition {
         Collections.addAll(this.conditions, Validate.notEmpty(conditions, "%s cannot be empty.", "conditions"));
     }
 
+    public static AndRetryCondition create(RetryCondition... conditions) {
+        return new AndRetryCondition(conditions);
+    }
+
     /**
      * @return True if all conditions are true, false otherwise.
      */
@@ -43,8 +47,9 @@ public final class AndRetryCondition implements RetryCondition {
         return conditions.stream().allMatch(r -> r.shouldRetry(context));
     }
 
-    public static AndRetryCondition create(RetryCondition... conditions) {
-        return new AndRetryCondition(conditions);
+    @Override
+    public void requestSucceeded(RetryPolicyContext context) {
+        conditions.forEach(c -> c.requestSucceeded(context));
     }
 
     @Override

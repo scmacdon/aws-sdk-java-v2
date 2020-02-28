@@ -28,8 +28,6 @@ import static software.amazon.awssdk.core.client.config.SdkClientOption.API_CALL
 import static software.amazon.awssdk.core.client.config.SdkClientOption.ASYNC_HTTP_CLIENT;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.CRC32_FROM_COMPRESSED_DATA_ENABLED;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.EXECUTION_INTERCEPTORS;
-import static software.amazon.awssdk.core.client.config.SdkClientOption.REQUEST_CAPACITY;
-import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_MODE;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_POLICY;
 import static software.amazon.awssdk.core.client.config.SdkClientOption.SCHEDULED_EXECUTOR_SERVICE;
 import static software.amazon.awssdk.utils.CollectionUtils.mergeLists;
@@ -50,7 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.annotations.SdkTestInternalApi;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.client.config.ClientAsyncConfiguration;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
@@ -60,7 +57,6 @@ import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.internal.http.loader.DefaultSdkAsyncHttpClientBuilder;
 import software.amazon.awssdk.core.internal.http.loader.DefaultSdkHttpClientBuilder;
 import software.amazon.awssdk.core.internal.util.UserAgentUtils;
-import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.ExecutableHttpRequest;
 import software.amazon.awssdk.http.HttpExecuteRequest;
@@ -192,7 +188,7 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
     private SdkClientConfiguration mergeGlobalDefaults(SdkClientConfiguration configuration) {
         return configuration.merge(c -> c.option(EXECUTION_INTERCEPTORS, new ArrayList<>())
                                          .option(ADDITIONAL_HTTP_HEADERS, new LinkedHashMap<>())
-                                         .option(RETRY_MODE, RetryMode.defaultRetryModeInstance())
+                                         .option(RETRY_POLICY, RetryPolicy.defaultRetryPolicy())
                                          .option(USER_AGENT_PREFIX, UserAgentUtils.getUserAgent())
                                          .option(USER_AGENT_SUFFIX, "")
                                          .option(CRC32_FROM_COMPRESSED_DATA_ENABLED, false));
@@ -234,8 +230,6 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
         return config.toBuilder()
                      .option(SCHEDULED_EXECUTOR_SERVICE, resolveScheduledExecutorService())
                      .option(EXECUTION_INTERCEPTORS, resolveExecutionInterceptors(config))
-                     .option(RETRY_POLICY, resolveRetryPolicy(config))
-                     .option(REQUEST_CAPACITY, resolveRequestCapacity(config))
                      .build();
     }
 
@@ -310,22 +304,6 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
         return mergeLists(globalInterceptors, config.option(EXECUTION_INTERCEPTORS));
     }
 
-    /**
-     * Finalize which retry policy will be used for the created client.
-     */
-    private RetryPolicy resolveRetryPolicy(SdkClientConfiguration config) {
-        RetryPolicy configuredPolicy = config.option(RETRY_POLICY);
-        return configuredPolicy != null ? configuredPolicy : RetryPolicy.forRetryMode(config.option(RETRY_MODE));
-    }
-
-    /**
-     * Finalize which request capacity will be used for the created client.
-     */
-    private RequestCapacity resolveRequestCapacity(SdkClientConfiguration config) {
-        RequestCapacity configuredPolicy = config.option(REQUEST_CAPACITY);
-        return configuredPolicy != null ? configuredPolicy : RequestCapacity.forRetryMode(config.option(RETRY_MODE));
-    }
-
     @Override
     public final B endpointOverride(URI endpointOverride) {
         Validate.paramNotNull(endpointOverride, "endpointOverride");
@@ -352,8 +330,6 @@ public abstract class SdkDefaultClientBuilder<B extends SdkClientBuilder<B, C>, 
     public final B overrideConfiguration(ClientOverrideConfiguration overrideConfig) {
         clientConfiguration.option(EXECUTION_INTERCEPTORS, overrideConfig.executionInterceptors());
         clientConfiguration.option(RETRY_POLICY, overrideConfig.retryPolicy().orElse(null));
-        clientConfiguration.option(RETRY_MODE, overrideConfig.retryMode().orElse(null));
-        clientConfiguration.option(REQUEST_CAPACITY, overrideConfig.requestCapacity().orElse(null));
         clientConfiguration.option(ADDITIONAL_HTTP_HEADERS, overrideConfig.headers());
         clientConfiguration.option(SIGNER, overrideConfig.advancedOption(SIGNER).orElse(null));
         clientConfiguration.option(USER_AGENT_SUFFIX, overrideConfig.advancedOption(USER_AGENT_SUFFIX).orElse(null));

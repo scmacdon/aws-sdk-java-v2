@@ -23,7 +23,6 @@ import software.amazon.awssdk.core.retry.RetryUtils;
 @SdkPublicApi
 @FunctionalInterface
 public interface RetryCondition {
-
     /**
      * Determine whether a request should or should not be retried.
      *
@@ -31,6 +30,9 @@ public interface RetryCondition {
      * @return True if the request should be retried, false if not.
      */
     boolean shouldRetry(RetryPolicyContext context);
+
+    default void requestSucceeded(RetryPolicyContext context) {
+    }
 
     static RetryCondition defaultRetryCondition() {
         return OrRetryCondition.create(
@@ -41,6 +43,6 @@ public interface RetryCondition {
     }
 
     static RetryCondition none() {
-        return MaxNumberOfRetriesCondition.create(0);
+        return c -> false;
     }
 }

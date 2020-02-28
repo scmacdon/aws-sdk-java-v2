@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import software.amazon.awssdk.annotations.SdkPublicApi;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -48,8 +47,6 @@ public final class ClientOverrideConfiguration
     implements ToCopyableBuilder<ClientOverrideConfiguration.Builder, ClientOverrideConfiguration> {
     private final Map<String, List<String>> headers;
     private final RetryPolicy retryPolicy;
-    private final RetryMode retryMode;
-    private final RequestCapacity requestCapacity;
     private final List<ExecutionInterceptor> executionInterceptors;
     private final AttributeMap advancedOptions;
     private final Duration apiCallAttemptTimeout;
@@ -61,8 +58,6 @@ public final class ClientOverrideConfiguration
     private ClientOverrideConfiguration(Builder builder) {
         this.headers = CollectionUtils.deepUnmodifiableMap(builder.headers(), () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
         this.retryPolicy = builder.retryPolicy();
-        this.retryMode = builder.retryMode();
-        this.requestCapacity = builder.requestCapacity();
         this.executionInterceptors = Collections.unmodifiableList(new ArrayList<>(builder.executionInterceptors()));
         this.advancedOptions = builder.advancedOptions();
         this.apiCallTimeout = Validate.isPositiveOrNull(builder.apiCallTimeout(), "apiCallTimeout");
@@ -74,8 +69,6 @@ public final class ClientOverrideConfiguration
         return new DefaultClientOverrideConfigurationBuilder().advancedOptions(advancedOptions.toBuilder())
                                                               .headers(headers)
                                                               .retryPolicy(retryPolicy)
-                                                              .retryMode(retryMode)
-                                                              .requestCapacity(requestCapacity)
                                                               .apiCallTimeout(apiCallTimeout)
                                                               .apiCallAttemptTimeout(apiCallAttemptTimeout)
                                                               .executionInterceptors(executionInterceptors);
@@ -107,14 +100,6 @@ public final class ClientOverrideConfiguration
      */
     public Optional<RetryPolicy> retryPolicy() {
         return Optional.ofNullable(retryPolicy);
-    }
-
-    public Optional<RetryMode> retryMode() {
-        return Optional.ofNullable(retryMode);
-    }
-
-    public Optional<RequestCapacity> requestCapacity() {
-        return Optional.ofNullable(requestCapacity);
     }
 
     /**
@@ -178,8 +163,6 @@ public final class ClientOverrideConfiguration
         return ToString.builder("ClientOverrideConfiguration")
                        .add("headers", headers)
                        .add("retryPolicy", retryPolicy)
-                       .add("retryMode", retryMode)
-                       .add("requestCapacity", requestCapacity)
                        .add("apiCallTimeout", apiCallTimeout)
                        .add("apiCallAttemptTimeout", apiCallAttemptTimeout)
                        .add("executionInterceptors", executionInterceptors)
@@ -241,22 +224,23 @@ public final class ClientOverrideConfiguration
          */
         Builder retryPolicy(RetryPolicy retryPolicy);
 
-        RetryPolicy retryPolicy();
-
-        Builder retryMode(RetryMode retryMode);
-
-        RetryMode retryMode();
-
-        Builder requestCapacity(RequestCapacity requestCapacity);
-
-        RequestCapacity requestCapacity();
-
         /**
          * Configure the retry policy the should be used when handling failure cases.
          */
         default Builder retryPolicy(Consumer<RetryPolicy.Builder> retryPolicy) {
             return retryPolicy(RetryPolicy.builder().applyMutation(retryPolicy).build());
         }
+
+        /**
+         * Configure the retry mode used to determine the retry policy that is used when handling failure cases. This is
+         * shorthand for {@code retryPolicy(RetryPolicy.forRetryMode(retryMode))}, and overrides any configured retry policy on
+         * this builder.
+         */
+        default Builder retryPolicy(RetryMode retryMode) {
+            return retryPolicy(RetryPolicy.forRetryMode(retryMode));
+        }
+
+        RetryPolicy retryPolicy();
 
         /**
          * Configure a list of execution interceptors that will have access to read and modify the request and response objcets as
@@ -359,8 +343,6 @@ public final class ClientOverrideConfiguration
     private static final class DefaultClientOverrideConfigurationBuilder implements Builder {
         private Map<String, List<String>> headers = new HashMap<>();
         private RetryPolicy retryPolicy;
-        private RetryMode retryMode;
-        private RequestCapacity requestCapacity;
         private List<ExecutionInterceptor> executionInterceptors = new ArrayList<>();
         private AttributeMap.Builder advancedOptions = AttributeMap.builder();
         private Duration apiCallTimeout;
@@ -403,36 +385,6 @@ public final class ClientOverrideConfiguration
         @Override
         public RetryPolicy retryPolicy() {
             return retryPolicy;
-        }
-
-        @Override
-        public Builder retryMode(RetryMode retryMode) {
-            this.retryMode = retryMode;
-            return this;
-        }
-
-        public void setRetryMode(RetryMode retryMode) {
-            retryMode(retryMode);
-        }
-
-        @Override
-        public RetryMode retryMode() {
-            return retryMode;
-        }
-
-        @Override
-        public Builder requestCapacity(RequestCapacity requestCapacity) {
-            this.requestCapacity = requestCapacity;
-            return this;
-        }
-
-        public void setRequestCapacity(RequestCapacity requestCapacity) {
-            requestCapacity(requestCapacity);
-        }
-
-        @Override
-        public RequestCapacity requestCapacity() {
-            return requestCapacity;
         }
 
         @Override

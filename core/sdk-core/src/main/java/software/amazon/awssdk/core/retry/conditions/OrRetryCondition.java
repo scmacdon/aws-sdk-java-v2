@@ -34,6 +34,10 @@ public final class OrRetryCondition implements RetryCondition {
         Collections.addAll(this.conditions, conditions);
     }
 
+    public static OrRetryCondition create(RetryCondition... conditions) {
+        return new OrRetryCondition(conditions);
+    }
+
     /**
      * @return True if any condition returns true. False otherwise.
      */
@@ -42,8 +46,9 @@ public final class OrRetryCondition implements RetryCondition {
         return conditions.stream().anyMatch(r -> r.shouldRetry(context));
     }
 
-    public static OrRetryCondition create(RetryCondition... conditions) {
-        return new OrRetryCondition(conditions);
+    @Override
+    public void requestSucceeded(RetryPolicyContext context) {
+        conditions.forEach(c -> c.requestSucceeded(context));
     }
 
     @Override

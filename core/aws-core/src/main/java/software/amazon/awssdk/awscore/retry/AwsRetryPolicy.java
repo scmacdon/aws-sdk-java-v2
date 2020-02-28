@@ -42,6 +42,6 @@ public final class AwsRetryPolicy {
     }
 
     public static RetryPolicy forRetryMode(RetryMode retryMode) {
-        return RetryPolicy.forRetryMode(retryMode).toBuilder().retryCondition(defaultRetryCondition()).build();
+        return RetryPolicy.builder(retryMode).retryCondition(defaultRetryCondition()).build();
     }
 }

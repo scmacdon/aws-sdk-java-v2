@@ -29,12 +29,11 @@ import software.amazon.awssdk.core.internal.http.pipeline.stages.utils.Retryable
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 
 /**
- * Wrapper around the pipeline for a single request to provide retry, clockskew and request throttling functionality.
+ * Wrapper around the pipeline for a single request to provide retry, clock-skew and request throttling functionality.
  */
 @SdkInternalApi
 public final class RetryableStage<OutputT> implements RequestToResponsePipeline<OutputT> {
     private final RequestPipeline<SdkHttpFullRequest, Response<OutputT>> requestPipeline;
-
     private final HttpClientDependencies dependencies;
 
     public RetryableStage(HttpClientDependencies dependencies,
@@ -51,10 +50,6 @@ public final class RetryableStage<OutputT> implements RequestToResponsePipeline<
 
             if (!retryableStageHelper.retryPolicyAllowsRetry()) {
                 throw retryableStageHelper.retryPolicyDisallowedRetryException();
-            }
-
-            if (!retryableStageHelper.requestCapacityAllowsRequest()) {
-                throw retryableStageHelper.requestCapacityDisallowedRequestException();
             }
 
             Duration backoffDelay = retryableStageHelper.getBackoffDelay();

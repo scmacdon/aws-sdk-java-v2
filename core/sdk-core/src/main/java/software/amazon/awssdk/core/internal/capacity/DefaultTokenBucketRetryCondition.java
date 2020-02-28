@@ -16,18 +16,17 @@
 package software.amazon.awssdk.core.internal.capacity;
 
 import software.amazon.awssdk.annotations.SdkInternalApi;
-import software.amazon.awssdk.core.capacity.RequestCapacity;
-import software.amazon.awssdk.core.capacity.TokenBucketExceptionCostCalculator;
-import software.amazon.awssdk.core.capacity.TokenBucketRequestCapacity;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
 import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.core.retry.conditions.TokenBucketExceptionCostCalculator;
+import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition;
 
 @SdkInternalApi
-public class DefaultRequestCapacity {
-    private DefaultRequestCapacity() {}
+public class DefaultTokenBucketRetryCondition {
+    private DefaultTokenBucketRetryCondition() {}
 
-    public static RequestCapacity forRetryMode(RetryMode mode) {
-        return TokenBucketRequestCapacity.builder()
+    public static TokenBucketRetryCondition forRetryMode(RetryMode mode) {
+        return TokenBucketRetryCondition.builder()
                                          .tokenBucketSize(SdkDefaultRetrySetting.TOKEN_BUCKET_SIZE)
                                          .exceptionCostCalculator(getExceptionCostCalculator(mode))
                                          .build();
