@@ -32,18 +32,31 @@ public final class AwsRetryPolicy {
     private AwsRetryPolicy() {
     }
 
+    /**
+     * Retrieve the {@link RetryCondition#defaultRetryCondition()} with AWS-specific conditions added.
+     */
     public static RetryCondition defaultRetryCondition() {
         return OrRetryCondition.create(RetryCondition.defaultRetryCondition(), awsRetryCondition());
     }
 
+    /**
+     * Retrieve the {@link RetryPolicy#defaultRetryPolicy()} with AWS-specific conditions added.
+     */
     public static RetryPolicy defaultRetryPolicy() {
-        return forRetryMode(RetryMode.defaultRetryModeInstance());
+        return forRetryMode(RetryMode.defaultRetryMode());
     }
 
+    /**
+     * Retrieve the {@link RetryPolicy#defaultRetryPolicy()} with AWS-specific conditions added. This uses the specified
+     * {@link RetryMode} when constructing the {@link RetryPolicy}.
+     */
     public static RetryPolicy forRetryMode(RetryMode retryMode) {
         return addRefinements(RetryPolicy.forRetryMode(retryMode));
     }
 
+    /**
+     * Update the provided {@link RetryPolicy} to add AWS-specific conditions.
+     */
     public static RetryPolicy addRefinements(RetryPolicy condition) {
         return condition.toBuilder()
                         .retryCondition(OrRetryCondition.create(condition.retryCondition(), awsRetryCondition()))

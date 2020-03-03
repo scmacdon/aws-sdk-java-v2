@@ -21,16 +21,27 @@ import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition.Capacity;
 import software.amazon.awssdk.utils.Validate;
 
+/**
+ * A lock-free implementation of a token bucket. Tokens can be acquired from the bucket as long as there is sufficient capacity
+ * in the bucket.
+ */
 @SdkInternalApi
-public class AtomicCapacity {
+public class TokenBucket {
     private final int maxCapacity;
     private final AtomicInteger capacity;
 
-    public AtomicCapacity(int capacity) {
-        this.maxCapacity = capacity;
-        this.capacity = new AtomicInteger(capacity);
+    /**
+     * Create a bucket containing the specified number of tokens.
+     */
+    public TokenBucket(int maxCapacity) {
+        this.maxCapacity = maxCapacity;
+        this.capacity = new AtomicInteger(maxCapacity);
     }
 
+    /**
+     * Try to acquire a certain number of tokens from this bucket. If there aren't sufficient tokens in this bucket,
+     * {@link Optional#empty()} is returned.
+     */
     public Optional<Capacity> tryAcquire(int amountToAcquire) {
         Validate.isTrue(amountToAcquire >= 0, "Amount must not be negative.");
 
@@ -58,6 +69,10 @@ public class AtomicCapacity {
         }
     }
 
+    /**
+     * Release a certain number of tokens back to this bucket. If this number of tokens would exceed the maximum number of tokens
+     * configured for the bucket, the bucket is instead set to the maximum value and the additional tokens are discarded.
+     */
     public void release(int amountToRelease) {
         Validate.isTrue(amountToRelease >= 0, "Amount must not be negative.");
 
@@ -79,10 +94,18 @@ public class AtomicCapacity {
         }
     }
 
+    /**
+     * Retrieve a snapshot of the current number of tokens in the bucket. Because this number is constantly changing, it's
+     * recommended to refer to the {@link Capacity#capacityRemaining()} returned by the {@link #tryAcquire(int)} method whenever
+     * possible.
+     */
     public int currentCapacity() {
         return capacity.get();
     }
 
+    /**
+     * Retrieve the maximum capacity of the bucket configured when the bucket was created.
+     */
     public int maxCapacity() {
         return maxCapacity;
     }
@@ -96,7 +119,7 @@ public class AtomicCapacity {
             return false;
         }
 
-        AtomicCapacity that = (AtomicCapacity) o;
+        TokenBucket that = (TokenBucket) o;
 
         if (maxCapacity != that.maxCapacity) {
             return false;

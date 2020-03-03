@@ -20,6 +20,10 @@ import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.RetryUtils;
 import software.amazon.awssdk.utils.ToString;
 
+/**
+ * A {@link RetryCondition} that will return true if the provided exception seems to be due to a throttling error from the
+ * service to the client.
+ */
 @SdkPublicApi
 public final class RetryOnThrottlingCondition implements RetryCondition {
     private RetryOnThrottlingCondition() {}

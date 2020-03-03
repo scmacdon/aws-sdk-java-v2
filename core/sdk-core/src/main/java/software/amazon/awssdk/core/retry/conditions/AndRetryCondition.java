@@ -48,8 +48,8 @@ public final class AndRetryCondition implements RetryCondition {
     }
 
     @Override
-    public void willNotRetry(RetryPolicyContext context) {
-        conditions.forEach(c -> c.willNotRetry(context));
+    public void requestWillNotBeRetried(RetryPolicyContext context) {
+        conditions.forEach(c -> c.requestWillNotBeRetried(context));
     }
 
     @Override

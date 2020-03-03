@@ -30,9 +30,17 @@ public interface RetryCondition {
      */
     boolean shouldRetry(RetryPolicyContext context);
 
-    default void willNotRetry(RetryPolicyContext context) {
+    /**
+     * Called by the SDK to notify this condition that the provided request will not be retried, because some retry condition
+     * determined that it shouldn't be retried.
+     */
+    default void requestWillNotBeRetried(RetryPolicyContext context) {
     }
 
+    /**
+     * Called by the SDK to notify this condition that the provided request succeeded. This method is invoked even if the
+     * execution never failed before ({@link RetryPolicyContext#retriesAttempted()} is zero).
+     */
     default void requestSucceeded(RetryPolicyContext context) {
     }
 
@@ -44,6 +52,9 @@ public interface RetryCondition {
             RetryOnThrottlingCondition.create());
     }
 
+    /**
+     * A retry condition that will NEVER allow retries.
+     */
     static RetryCondition none() {
         return MaxNumberOfRetriesCondition.create(0);
     }

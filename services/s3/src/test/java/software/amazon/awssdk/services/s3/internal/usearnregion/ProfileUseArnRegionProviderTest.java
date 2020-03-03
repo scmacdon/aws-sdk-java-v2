@@ -26,7 +26,7 @@ import org.junit.After;
 import org.junit.Test;
 
 public class ProfileUseArnRegionProviderTest {
-    private ProfileUseArnRegionProvider provider = ProfileUseArnRegionProvider.createWithoutCache();
+    private ProfileUseArnRegionProvider provider = ProfileUseArnRegionProvider.create();
 
     @After
     public void clearSystemProperty() {

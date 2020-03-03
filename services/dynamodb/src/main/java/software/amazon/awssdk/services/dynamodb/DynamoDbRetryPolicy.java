@@ -70,7 +70,7 @@ final class DynamoDbRetryPolicy {
      * @return Default retry policy used by DynamoDbClient
      */
     public static RetryPolicy defaultRetryPolicy() {
-        if (RetryMode.defaultRetryModeInstance() == RetryMode.LEGACY) {
+        if (RetryMode.defaultRetryMode() == RetryMode.LEGACY) {
             return LEGACY_RETRY_POLICY;
         }
 

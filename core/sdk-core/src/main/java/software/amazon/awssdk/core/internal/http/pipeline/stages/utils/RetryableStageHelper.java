@@ -29,6 +29,8 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.internal.InternalCoreExecutionAttribute;
 import software.amazon.awssdk.core.internal.http.HttpClientDependencies;
 import software.amazon.awssdk.core.internal.http.RequestExecutionContext;
+import software.amazon.awssdk.core.internal.http.pipeline.stages.AsyncRetryableStage;
+import software.amazon.awssdk.core.internal.http.pipeline.stages.RetryableStage;
 import software.amazon.awssdk.core.internal.retry.ClockSkewAdjuster;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
@@ -37,6 +39,10 @@ import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
 import software.amazon.awssdk.http.SdkHttpResponse;
 
+/**
+ * Contains the logic shared by {@link RetryableStage} and {@link AsyncRetryableStage} when querying and interacting with a
+ * {@link RetryPolicy}.
+ */
 @SdkInternalApi
 public class RetryableStageHelper {
     private final SdkHttpFullRequest request;
@@ -58,11 +64,18 @@ public class RetryableStageHelper {
         this.dependencies = dependencies;
     }
 
+    /**
+     * Invoke when starting a request attempt, before querying the retry policy.
+     */
     public void startingAttempt() {
         ++attemptNumber;
         context.executionAttributes().putAttribute(InternalCoreExecutionAttribute.EXECUTION_ATTEMPT, attemptNumber);
     }
 
+    /**
+     * Returns true if the retry policy allows this attempt. This will always return true if the current attempt is not a retry
+     * (i.e. it's the first request in the execution).
+     */
     public boolean retryPolicyAllowsRetry() {
         if (isInitialAttempt()) {
             return true;
@@ -72,13 +85,27 @@ public class RetryableStageHelper {
             return false;
         }
 
-        return retryPolicy.aggregateRetryCondition().shouldRetry(retryPolicyContext(true));
+        RetryPolicyContext context = retryPolicyContext(true);
+
+        boolean willRetry = retryPolicy.aggregateRetryCondition().shouldRetry(context);
+        if (!willRetry) {
+            retryPolicy.aggregateRetryCondition().requestWillNotBeRetried(context);
+        }
+
+        return willRetry;
     }
 
+    /**
+     * Return the exception that should be thrown, because the retry policy did not allow the request to be retried.
+     */
     public SdkException retryPolicyDisallowedRetryException() {
         return lastException;
     }
 
+    /**
+     * Get the amount of time that the request should be delayed before being sent. This may be {@link Duration#ZERO}, such as
+     * for the first request in the request series.
+     */
     public Duration getBackoffDelay() {
         Duration result;
         if (isInitialAttempt()) {
@@ -95,12 +122,18 @@ public class RetryableStageHelper {
         return result;
     }
 
+    /**
+     * Log a message to the user at the debug level to indicate how long we will wait before retrying the request.
+     */
     public void logBackingOff(Duration backoffDelay) {
         SdkStandardLogger.REQUEST_LOGGER.debug(() -> "Retryable error detected. Will retry in " +
                                                      backoffDelay.toMillis() + "ms. Request attempt number " +
                                                      attemptNumber);
     }
 
+    /**
+     * Retrieve the request to send to the service, including any detailed retry information headers.
+     */
     public SdkHttpFullRequest requestToSend() {
         Integer availableRetryCapacity = TokenBucketRetryCondition.getCapacityForExecution(context.executionAttributes())
                                                                   .map(TokenBucketRetryCondition.Capacity::capacityRemaining)
@@ -115,10 +148,17 @@ public class RetryableStageHelper {
                       .build();
     }
 
+    /**
+     * Log a message to the user at the debug level to indicate that we are sending the request to the service.
+     */
     public void logSendingRequest() {
         SdkStandardLogger.REQUEST_LOGGER.debug(() -> (isInitialAttempt() ? "Sending" : "Retrying") + " Request: " + request);
     }
 
+    /**
+     * Adjust the client-side clock skew if the provided response indicates that there is a large skew between the client and
+     * service. This will allow a retried request to be signed with what is likely to be a more accurate time.
+     */
     public void adjustClockIfClockSkew(Response<?> response) {
         ClockSkewAdjuster clockSkewAdjuster = dependencies.clockSkewAdjuster();
         if (!response.isSuccess() && clockSkewAdjuster.shouldAdjust(response.exception())) {
@@ -126,18 +166,32 @@ public class RetryableStageHelper {
         }
     }
 
+    /**
+     * Notify the retry policy that the request attempt succeeded.
+     */
     public void attemptSucceeded() {
         retryPolicy.aggregateRetryCondition().requestSucceeded(retryPolicyContext(false));
     }
 
+    /**
+     * Retrieve the current attempt number, updated whenever {@link #startingAttempt()} is invoked.
+     */
     public int getAttemptNumber() {
         return attemptNumber;
     }
 
+    /**
+     * Retrieve the last call failure exception encountered by this execution, updated whenever {@link #setLastException} is
+     * invoked.
+     */
     public SdkException getLastException() {
         return lastException;
     }
 
+    /**
+     * Update the {@link #getLastException()} value for this helper. This will be used to determine whether the request should
+     * be retried.
+     */
     public void setLastException(Throwable lastException) {
         if (lastException instanceof CompletionException) {
             setLastException(lastException.getCause());
@@ -149,6 +203,9 @@ public class RetryableStageHelper {
         }
     }
 
+    /**
+     * Set the last HTTP response returned by the service. This will be used to determine whether the request should be retried.
+     */
     public void setLastResponse(SdkHttpResponse lastResponse) {
         this.lastResponse = lastResponse;
     }

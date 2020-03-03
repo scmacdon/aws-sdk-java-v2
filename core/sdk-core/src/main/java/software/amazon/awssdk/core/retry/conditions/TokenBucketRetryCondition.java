@@ -19,13 +19,30 @@ import java.util.Optional;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.interceptor.ExecutionAttribute;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.core.internal.capacity.AtomicCapacity;
-import software.amazon.awssdk.core.internal.capacity.DefaultTokenBucketRetryCondition;
+import software.amazon.awssdk.core.internal.capacity.TokenBucket;
+import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
 import software.amazon.awssdk.core.retry.RetryMode;
+import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
 
+/**
+ * A {@link RetryCondition} that limits the number of retries made by the SDK using a token bucket algorithm. "Tokens" are
+ * acquired from the bucket whenever {@link #shouldRetry} returns true, and are released to the bucket whenever
+ * {@link #requestSucceeded} or {@link #requestWillNotBeRetried} are invoked.
+ *
+ * <p>
+ * If "tokens" cannot be acquired from the bucket, it means too many requests have failed and the request will not be allowed
+ * to retry until we start to see initial non-retried requests succeed via {@link #requestSucceeded(RetryPolicyContext)}.
+ *
+ * <p>
+ * This prevents the client from holding the calling thread to retry when it's likely that it will fail anyway.
+ *
+ * <p>
+ * This is currently included in the default {@link RetryPolicy#aggregateRetryCondition()}, but can be disabled by setting the
+ * {@link RetryPolicy.Builder#retryCapacityCondition} to null.
+ */
 @SdkPublicApi
 public class TokenBucketRetryCondition implements RetryCondition {
     private static final ExecutionAttribute<Capacity> LAST_ACQUIRED_CAPACITY =
@@ -34,26 +51,75 @@ public class TokenBucketRetryCondition implements RetryCondition {
     private static final ExecutionAttribute<Integer> RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION =
         new ExecutionAttribute<>("TokenBucketRetryCondition.RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION");
 
-    private final AtomicCapacity capacity;
+    private final TokenBucket capacity;
     private final TokenBucketExceptionCostCalculator exceptionCostCalculator;
 
     private TokenBucketRetryCondition(Builder builder) {
-        this.capacity = new AtomicCapacity(Validate.notNull(builder.tokenBucketSize, "tokenBucketSize"));
+        this.capacity = new TokenBucket(Validate.notNull(builder.tokenBucketSize, "tokenBucketSize"));
         this.exceptionCostCalculator = Validate.notNull(builder.exceptionCostCalculator, "exceptionCostCalculator");
     }
 
+    /**
+     * Create a condition using the {@link RetryMode#defaultRetryMode()}. This is equivalent to
+     * {@code forRetryMode(RetryMode.defaultRetryMode())}.
+     *
+     * <p>
+     * For more detailed control, see {@link #builder()}.
+     */
     public static TokenBucketRetryCondition create() {
-        return DefaultTokenBucketRetryCondition.forRetryMode(RetryMode.defaultRetryModeInstance());
+        return forRetryMode(RetryMode.defaultRetryMode());
     }
 
+    /**
+     * Create a condition using the configured {@link RetryMode}. The {@link RetryMode#LEGACY} does not subtract tokens from
+     * the token bucket when throttling exceptions are encountered. The {@link RetryMode#STANDARD} treats throttling and non-
+     * throttling exceptions as the same cost.
+     *
+     * <p>
+     * For more detailed control, see {@link #builder()}.
+     */
+    public static TokenBucketRetryCondition forRetryMode(RetryMode retryMode) {
+        return TokenBucketRetryCondition.builder()
+                                        .tokenBucketSize(SdkDefaultRetrySetting.TOKEN_BUCKET_SIZE)
+                                        .exceptionCostCalculator(getExceptionCostCalculator(retryMode))
+                                        .build();
+    }
+
+    private static TokenBucketExceptionCostCalculator getExceptionCostCalculator(RetryMode retryMode) {
+        switch (retryMode) {
+            case LEGACY: return TokenBucketExceptionCostCalculator.builder()
+                                                                  .throttlingExceptionCost(0)
+                                                                  .defaultExceptionCost(5)
+                                                                  .build();
+
+            case STANDARD: return  TokenBucketExceptionCostCalculator.builder()
+                                                                     .defaultExceptionCost(5)
+                                                                     .build();
+
+            default: throw new IllegalStateException("Unsupported RetryMode: " + retryMode);
+        }
+    }
+
+    /**
+     * Create a builder that allows fine-grained control over the token policy of this condition.
+     */
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * If {@link #shouldRetry(RetryPolicyContext)} returned true for the provided execution, this method returns the
+     * {@link Capacity} consumed by the request.
+     */
     public static Optional<Capacity> getCapacityForExecution(ExecutionAttributes attributes) {
         return Optional.ofNullable(attributes.getAttribute(LAST_ACQUIRED_CAPACITY));
     }
 
+    /**
+     * Retrieve the number of tokens currently available in the token bucket. This is a volatile snapshot of the current value.
+     * See {@link #getCapacityForExecution(ExecutionAttributes)} to see how much capacity was left in the bucket after a specific
+     * execution was considered.
+     */
     public int tokensAvailable() {
         return capacity.currentCapacity();
     }
@@ -75,7 +141,7 @@ public class TokenBucketRetryCondition implements RetryCondition {
     }
 
     @Override
-    public void willNotRetry(RetryPolicyContext context) {
+    public void requestWillNotBeRetried(RetryPolicyContext context) {
         int lastAcquisitionRetryCount = context.executionAttributes().getAttribute(RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION);
 
         if (context.retriesAttempted() == lastAcquisitionRetryCount) {
@@ -129,6 +195,9 @@ public class TokenBucketRetryCondition implements RetryCondition {
         return result;
     }
 
+    /**
+     * Configure and create a {@link TokenBucketRetryCondition}.
+     */
     public static final class Builder {
         private Integer tokenBucketSize;
         private TokenBucketExceptionCostCalculator exceptionCostCalculator;
@@ -138,21 +207,36 @@ public class TokenBucketRetryCondition implements RetryCondition {
          */
         private Builder() {}
 
+        /**
+         * Specify the maximum number of tokens in the token bucket. This is also used as the initial value for the number of
+         * tokens in the bucket.
+         */
         public Builder tokenBucketSize(int tokenBucketSize) {
             this.tokenBucketSize = tokenBucketSize;
             return this;
         }
 
+        /**
+         * Configure a {@link TokenBucketExceptionCostCalculator} that is used to calculate the number of tokens that should be
+         * taken out of the bucket for each specific exception. These tokens will be returned in case of successful retries.
+         */
         public Builder exceptionCostCalculator(TokenBucketExceptionCostCalculator exceptionCostCalculator) {
             this.exceptionCostCalculator = exceptionCostCalculator;
             return this;
         }
 
+        /**
+         * Build a {@link TokenBucketRetryCondition} using the provided configuration.
+         */
         public TokenBucketRetryCondition build() {
             return new TokenBucketRetryCondition(this);
         }
     }
 
+    /**
+     * The number of tokens in the token bucket after a specific token acquisition succeeds. This can be retrieved via
+     * {@link #getCapacityForExecution(ExecutionAttributes)}.
+     */
     public static final class Capacity {
         private final int capacityAcquired;
         private final int capacityRemaining;
@@ -166,10 +250,16 @@ public class TokenBucketRetryCondition implements RetryCondition {
             return new Builder();
         }
 
+        /**
+         * The number of tokens acquired by the last token acquisition.
+         */
         public int capacityAcquired() {
             return capacityAcquired;
         }
 
+        /**
+         * The number of tokens in the token bucket.
+         */
         public int capacityRemaining() {
             return capacityRemaining;
         }

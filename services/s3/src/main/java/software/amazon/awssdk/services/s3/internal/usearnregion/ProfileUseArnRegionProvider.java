@@ -21,7 +21,6 @@ import static software.amazon.awssdk.profiles.ProfileFileSystemSetting.AWS_PROFI
 import java.util.Optional;
 import java.util.function.Supplier;
 import software.amazon.awssdk.annotations.SdkInternalApi;
-import software.amazon.awssdk.annotations.SdkTestInternalApi;
 import software.amazon.awssdk.profiles.ProfileFile;
 import software.amazon.awssdk.utils.StringUtils;
 
@@ -42,11 +41,6 @@ public final class ProfileUseArnRegionProvider implements UseArnRegionProvider {
     }
 
     public static ProfileUseArnRegionProvider create() {
-        return new ProfileUseArnRegionProvider(ProfileFile::defaultProfileFileInstance);
-    }
-
-    @SdkTestInternalApi
-    static ProfileUseArnRegionProvider createWithoutCache() {
         return new ProfileUseArnRegionProvider(ProfileFile::defaultProfileFile);
     }
 

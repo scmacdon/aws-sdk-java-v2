@@ -37,7 +37,7 @@ public class AwsProfileRegionProviderTest {
     public void nonExistentDefaultConfigFile_ThrowsException() {
         settingsHelper.set(ProfileFileSystemSetting.AWS_CONFIG_FILE, "/var/tmp/this/is/invalid.txt");
         settingsHelper.set(ProfileFileSystemSetting.AWS_SHARED_CREDENTIALS_FILE, "/var/tmp/this/is/also.invalid.txt");
-        assertThatThrownBy(() -> new AwsProfileRegionProvider(ProfileFile.defaultProfileFile()).getRegion())
+        assertThatThrownBy(() -> new AwsProfileRegionProvider().getRegion())
             .isInstanceOf(SdkClientException.class)
             .hasMessageContaining("No region provided in profile: default");
     }
@@ -48,6 +48,6 @@ public class AwsProfileRegionProviderTest {
 
         settingsHelper.set(ProfileFileSystemSetting.AWS_PROFILE, "test");
         settingsHelper.set(ProfileFileSystemSetting.AWS_CONFIG_FILE, Paths.get(getClass().getResource(testFile).toURI()).toString());
-        assertThat(new AwsProfileRegionProvider(ProfileFile.defaultProfileFile()).getRegion()).isEqualTo(Region.of("saa"));
+        assertThat(new AwsProfileRegionProvider().getRegion()).isEqualTo(Region.of("saa"));
     }
 }

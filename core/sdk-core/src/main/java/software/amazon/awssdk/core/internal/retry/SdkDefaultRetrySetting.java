@@ -99,6 +99,6 @@ public final class SdkDefaultRetrySetting {
     }
 
     public static Integer defaultMaxAttempts() {
-        return maxAttempts(RetryMode.defaultRetryModeInstance());
+        return maxAttempts(RetryMode.defaultRetryMode());
     }
 }

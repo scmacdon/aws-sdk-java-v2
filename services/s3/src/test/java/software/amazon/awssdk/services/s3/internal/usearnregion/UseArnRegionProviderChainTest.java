@@ -26,7 +26,7 @@ import software.amazon.awssdk.testutils.EnvironmentVariableHelper;
 
 public class UseArnRegionProviderChainTest {
     private final EnvironmentVariableHelper helper = new EnvironmentVariableHelper();
-    private final UseArnRegionProviderChain chain = UseArnRegionProviderChain.createWithoutCache();
+    private final UseArnRegionProviderChain chain = UseArnRegionProviderChain.create();
 
     @After
     public void clearSystemProperty() {

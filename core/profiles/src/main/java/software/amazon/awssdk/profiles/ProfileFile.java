@@ -31,7 +31,6 @@ import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.profiles.internal.ProfileFileReader;
 import software.amazon.awssdk.utils.FunctionalUtils;
 import software.amazon.awssdk.utils.IoUtils;
-import software.amazon.awssdk.utils.Lazy;
 import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
 import software.amazon.awssdk.utils.builder.SdkBuilder;
@@ -48,12 +47,10 @@ import software.amazon.awssdk.utils.builder.SdkBuilder;
  *
  * <p>
  * A profile file can be created with {@link #builder()} and merged with other profiles files with {@link #aggregator()}. By
- * default, the SDK will use the {@link #defaultProfileFileInstance()} when that behavior hasn't been explicitly overridden.
+ * default, the SDK will use the {@link #defaultProfileFile()} when that behavior hasn't been explicitly overridden.
  */
 @SdkPublicApi
 public final class ProfileFile {
-    private static final Lazy<ProfileFile> DEFAULT_PROFILE_FILE = new Lazy<>(ProfileFile::defaultProfileFile);
-
     private final Map<String, Profile> profiles;
 
     /**
@@ -86,22 +83,13 @@ public final class ProfileFile {
      * {@link ProfileFileSystemSetting#AWS_PROFILE} settings or by specifying a different profile file and profile name.
      *
      * <p>
-     * The file is read each time this method is invoked. For a cached version of this file, see
-     * {@link #defaultProfileFileInstance()}.
+     * The file is read each time this method is invoked.
      */
     public static ProfileFile defaultProfileFile() {
         return ProfileFile.aggregator()
                           .applyMutation(ProfileFile::addCredentialsFile)
                           .applyMutation(ProfileFile::addConfigFile)
                           .build();
-    }
-
-    /**
-     * Equivalent to {@link #defaultProfileFile()}, except the value is cached between invocations so that the profile file is
-     * only read once.
-     */
-    public static ProfileFile defaultProfileFileInstance() {
-        return DEFAULT_PROFILE_FILE.getValue();
     }
 
     /**

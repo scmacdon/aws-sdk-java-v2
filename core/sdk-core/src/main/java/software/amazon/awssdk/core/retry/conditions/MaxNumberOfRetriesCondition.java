@@ -34,6 +34,10 @@ public final class MaxNumberOfRetriesCondition implements RetryCondition {
         this.maxNumberOfRetries = Validate.isNotNegative(maxNumberOfRetries, "maxNumberOfRetries");
     }
 
+    public static MaxNumberOfRetriesCondition create(int maxNumberOfRetries) {
+        return new MaxNumberOfRetriesCondition(maxNumberOfRetries);
+    }
+
     public static MaxNumberOfRetriesCondition forRetryMode(RetryMode retryMode) {
         return create(SdkDefaultRetrySetting.maxAttempts(retryMode));
     }
@@ -41,10 +45,6 @@ public final class MaxNumberOfRetriesCondition implements RetryCondition {
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         return context.retriesAttempted() < maxNumberOfRetries;
-    }
-
-    public static MaxNumberOfRetriesCondition create(int maxNumberOfRetries) {
-        return new MaxNumberOfRetriesCondition(maxNumberOfRetries);
     }
 
     @Override

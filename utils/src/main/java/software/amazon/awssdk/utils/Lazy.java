@@ -18,6 +18,9 @@ package software.amazon.awssdk.utils;
 import java.util.function.Supplier;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 
+/**
+ * A class that lazily constructs a value the first time {@link #getValue()} is invoked.
+ */
 @SdkPublicApi
 public class Lazy<T> {
     private final Supplier<T> initializer;
@@ -41,5 +44,13 @@ public class Lazy<T> {
         }
 
         return result;
+    }
+
+    @Override
+    public String toString() {
+        T value = this.value;
+        return ToString.builder("Lazy")
+                       .add("value", value == null ? "Uninitialized" : value)
+                       .build();
     }
 }

@@ -155,15 +155,14 @@ public enum SdkSystemSetting implements SystemSetting {
     AWS_S3_US_EAST_1_REGIONAL_ENDPOINT("aws.s3UseUsEast1RegionalEndpoint", null),
 
     /**
-     * Which retry mode to use as the default value for {@link ClientOverrideConfiguration.Builder#retryMode(RetryMode)} if one
-     * is not specified at the client level.
+     * Which retry mode to use for the default {@link RetryPolicy}, when one is not specified at the client level.
      */
     AWS_RETRY_MODE("aws.retryMode", null),
 
     /**
      * Defines the default value for {@link RetryPolicy.Builder#numRetries(Integer)}, if the retry count is not overridden in the
      * retry policy configured via {@link ClientOverrideConfiguration.Builder#retryPolicy(RetryPolicy)}. This is one more than
-     * the number of retries, so aws.maxAttempts = 1 implies zero retries.
+     * the number of retries, so aws.maxAttempts = 1 is 0 retries.
      */
     AWS_MAX_ATTEMPTS("aws.maxAttempts", null),
 

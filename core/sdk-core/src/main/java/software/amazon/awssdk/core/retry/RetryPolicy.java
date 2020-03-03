@@ -18,25 +18,24 @@ package software.amazon.awssdk.core.retry;
 import software.amazon.awssdk.annotations.Immutable;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.internal.capacity.DefaultTokenBucketRetryCondition;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
 import software.amazon.awssdk.core.retry.backoff.BackoffStrategy;
 import software.amazon.awssdk.core.retry.conditions.AndRetryCondition;
 import software.amazon.awssdk.core.retry.conditions.MaxNumberOfRetriesCondition;
 import software.amazon.awssdk.core.retry.conditions.RetryCondition;
+import software.amazon.awssdk.core.retry.conditions.TokenBucketRetryCondition;
 import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 
 /**
- * Interface for specifying a retry policy to use when evaluating whether or not a request should be retried. An implementation
- * of this interface can be provided to {@link ClientOverrideConfiguration#retryPolicy()} or the {@link #builder()}} can be used
- * to construct a retry policy from SDK provided policies or policies that directly implement {@link BackoffStrategy} and/or
- * {@link RetryCondition}.
+ * Interface for specifying a retry policy to use when evaluating whether or not a request should be retried. The
+ * {@link #builder()}} can be used to construct a retry policy from SDK provided policies or policies that directly implement
+ * {@link BackoffStrategy} and/or {@link RetryCondition}. This is configured on a client via
+ * {@link ClientOverrideConfiguration.Builder#retryPolicy}.
  *
  * When using the {@link #builder()} the SDK will use default values for fields that are not provided. The default number of
- * retries that will be used is {@link SdkDefaultRetrySetting#defaultMaxAttempts()} - 1. The default retry condition is
- * {@link RetryCondition#defaultRetryCondition()} and the default backoff strategy is {@link BackoffStrategy#defaultStrategy()}.
+ * retries and condition is based on the current {@link RetryMode}.
  *
  * @see RetryCondition for a list of SDK provided retry condition strategies
  * @see BackoffStrategy for a list of SDK provided backoff strategies
@@ -66,6 +65,98 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
         this.aggregateRetryCondition = generateAggregateRetryCondition();
     }
 
+    /**
+     * Create a {@link RetryPolicy} using the {@link RetryMode#defaultRetryMode()} defaults.
+     */
+    public static RetryPolicy defaultRetryPolicy() {
+        return forRetryMode(RetryMode.defaultRetryMode());
+    }
+
+    /**
+     * Create a {@link RetryPolicy} using the provided {@link RetryMode} defaults.
+     */
+    public static RetryPolicy forRetryMode(RetryMode retryMode) {
+        return RetryPolicy.builder(retryMode).build();
+    }
+
+    /**
+     * Create a {@link RetryPolicy} that will NEVER retry.
+     */
+    public static RetryPolicy none() {
+        return RetryPolicy.builder()
+                          .numRetries(0)
+                          .backoffStrategy(BackoffStrategy.none())
+                          .throttlingBackoffStrategy(BackoffStrategy.none())
+                          .retryCondition(RetryCondition.none())
+                          .furtherRefinementsAllowed(false)
+                          .build();
+    }
+
+    /**
+     * Create a {@link RetryPolicy.Builder} populated with the defaults from the {@link RetryMode#defaultRetryMode()}.
+     */
+    public static Builder builder() {
+        return new BuilderImpl(RetryMode.defaultRetryMode());
+    }
+
+    /**
+     * Create a {@link RetryPolicy.Builder} populated with the defaults from the provided {@link RetryMode}.
+     */
+    public static Builder builder(RetryMode retryMode) {
+        return new BuilderImpl(retryMode);
+    }
+
+    /**
+     * Retrieve the {@link RetryMode} that was used to determine the defaults for this retry policy.
+     */
+    public RetryMode retryMode() {
+        return retryMode;
+    }
+
+    /**
+     * Returns true if service-specific refinements are allowed on this policy (e.g. more conditions may be added by the SDK if
+     * they are recommended).
+     */
+    public boolean furtherRefinementsAllowed() {
+        return furtherRefinementsAllowed;
+    }
+
+    /**
+     * Retrieve the retry condition that aggregates the {@link Builder#retryCondition(RetryCondition)},
+     * {@link Builder#numRetries(Integer)} and {@link Builder#retryCapacityCondition(RetryCondition)} configured on the builder.
+     */
+    public RetryCondition aggregateRetryCondition() {
+        return aggregateRetryCondition;
+    }
+
+    /**
+     * Retrieve the {@link Builder#retryCondition(RetryCondition)} configured on the builder.
+     */
+    public RetryCondition retryCondition() {
+        return retryCondition;
+    }
+
+    /**
+     * Retrieve the {@link Builder#backoffStrategy(BackoffStrategy)} configured on the builder.
+     */
+    public BackoffStrategy backoffStrategy() {
+        return backoffStrategy;
+    }
+
+    /**
+     * Retrieve the {@link Builder#throttlingBackoffStrategy(BackoffStrategy)} configured on the builder.
+     */
+    public BackoffStrategy throttlingBackoffStrategy() {
+        return throttlingBackoffStrategy;
+    }
+
+    /**
+     * Retrieve the {@link Builder#numRetries(Integer)} configured on the builder.
+     */
+    public Integer numRetries() {
+        return numRetries;
+    }
+
     private RetryCondition generateAggregateRetryCondition() {
         RetryCondition aggregate = AndRetryCondition.create(MaxNumberOfRetriesCondition.create(numRetries),
                                                             retryCondition);
@@ -73,34 +164,6 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
             return AndRetryCondition.create(aggregate, retryCapacityCondition);
         }
         return aggregate;
-    }
-
-    public RetryMode retryMode() {
-        return retryMode;
-    }
-
-    public boolean furtherRefinementsAllowed() {
-        return furtherRefinementsAllowed;
-    }
-
-    public RetryCondition aggregateRetryCondition() {
-        return aggregateRetryCondition;
-    }
-
-    public RetryCondition retryCondition() {
-        return retryCondition;
-    }
-
-    public BackoffStrategy backoffStrategy() {
-        return backoffStrategy;
-    }
-
-    public BackoffStrategy throttlingBackoffStrategy() {
-        return throttlingBackoffStrategy;
-    }
-
-    public Integer numRetries() {
-        return numRetries;
     }
 
     public Builder toBuilder() {
@@ -157,54 +220,89 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
         return result;
     }
 
-    public static RetryPolicy defaultRetryPolicy() {
-        return forRetryMode(RetryMode.defaultRetryModeInstance());
-    }
-
-    public static Builder builder() {
-        return new BuilderImpl(RetryMode.defaultRetryModeInstance());
-    }
-
-    public static Builder builder(RetryMode retryMode) {
-        return new BuilderImpl(retryMode);
-    }
-
-    public static RetryPolicy forRetryMode(RetryMode retryMode) {
-        return RetryPolicy.builder(retryMode).build();
-    }
-
-    public static RetryPolicy none() {
-        return RetryPolicy.builder()
-                          .numRetries(0)
-                          .backoffStrategy(BackoffStrategy.none())
-                          .throttlingBackoffStrategy(BackoffStrategy.none())
-                          .retryCondition(RetryCondition.none())
-                          .build();
-    }
-
     public interface Builder extends CopyableBuilder<Builder, RetryPolicy> {
+        /**
+         * Configure whether further refinements of this retry policy are allowed after it is created. This may include service-
+         * specific retry conditions that may not otherwise be covered by the {@link RetryCondition#defaultRetryCondition()}.
+         *
+         * <p>
+         * By default, this is true.
+         */
         Builder furtherRefinementsAllowed(boolean furtherRefinementsAllowed);
 
+        /**
+         * @see #furtherRefinementsAllowed(boolean)
+         */
         boolean furtherRefinementsAllowed();
 
+        /**
+         * Configure the backoff strategy that should be used for waiting in between retry attempts. If the retry is because of
+         * throttling reasons, the {@link #throttlingBackoffStrategy(BackoffStrategy)} is used instead.
+         */
         Builder backoffStrategy(BackoffStrategy backoffStrategy);
 
+        /**
+         * @see #backoffStrategy(BackoffStrategy)
+         */
         BackoffStrategy backoffStrategy();
 
+        /**
+         * Configure the backoff strategy that should be used for waiting in between retry attempts after a throttling error
+         * is encountered. If the retry is not because of throttling reasons, the {@link #backoffStrategy(BackoffStrategy)} is
+         * used instead.
+         */
         Builder throttlingBackoffStrategy(BackoffStrategy backoffStrategy);
 
+        /**
+         * @see #throttlingBackoffStrategy(BackoffStrategy)
+         */
         BackoffStrategy throttlingBackoffStrategy();
 
+        /**
+         * Configure the condition under which the request should be retried.
+         *
+         * <p>
+         * While this can be any interface that implements {@link RetryCondition}, it is encouraged to use
+         * {@link #numRetries(Integer)} when attempting to limit the number of times the SDK will retry an attempt or the
+         * {@link #retryCapacityCondition(RetryCondition)} when attempting to configure the throttling of retries. This guidance
+         * is because the SDK uses the {@link #aggregateRetryCondition()} when determining whether or not to retry a request,
+         * and the {@code aggregateRetryCondition} includes the {@code numRetries} and {@code retryCapacityCondition} in its
+         * determination.
+         */
         Builder retryCondition(RetryCondition retryCondition);
 
+        /**
+         * @see #retryCondition(RetryCondition)
+         */
         RetryCondition retryCondition();
 
+        /**
+         * Configure the {@link RetryCondition} that should be used to throttle the number of retries attempted by the SDK client
+         * as a whole.
+         *
+         * <p>
+         * While any {@link RetryCondition} (or null) can be used, by convention these conditions are usually stateful and work
+         * globally for the whole client to limit the overall capacity of the client to execute retries.
+         *
+         * <p>
+         * By default the {@link TokenBucketRetryCondition} is used. This can be disabled by setting the value to {@code null}
+         * (not {@code RetryPolicy#none()}, which would completely disable retries).
+         */
         Builder retryCapacityCondition(RetryCondition retryCapacityCondition);
 
+        /**
+         * @see #retryCapacityCondition(RetryCondition)
+         */
         RetryCondition retryCapacityCondition();
 
+        /**
+         * Configure the maximum number of times that a single request should be retried, assuming it fails for a retryable error.
+         */
         Builder numRetries(Integer numRetries);
 
+        /**
+         * @see #numRetries(Integer)
+         */
         Integer numRetries();
         
         RetryPolicy build();
@@ -230,7 +328,7 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
             this.backoffStrategy = BackoffStrategy.defaultStrategy();
             this.throttlingBackoffStrategy = BackoffStrategy.defaultThrottlingStrategy();
             this.retryCondition = RetryCondition.defaultRetryCondition();
-            this.retryCapacityCondition = DefaultTokenBucketRetryCondition.forRetryMode(retryMode);
+            this.retryCapacityCondition = TokenBucketRetryCondition.forRetryMode(retryMode);
         }
 
         @Override

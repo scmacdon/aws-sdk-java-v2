@@ -20,6 +20,10 @@ import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.RetryUtils;
 import software.amazon.awssdk.utils.ToString;
 
+/**
+ * A {@link RetryCondition} that will return true if the provided exception seems to be due to a clock skew between the
+ * client and service.
+ */
 @SdkPublicApi
 public final class RetryOnClockSkewCondition implements RetryCondition {
     private RetryOnClockSkewCondition() {}
