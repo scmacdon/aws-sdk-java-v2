@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -22,7 +22,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
+import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -61,11 +63,20 @@ public class RetryPolicyMaxRetriesTest {
             });
     }
 
+    @BeforeClass
+    public static void classSetup() {
+        // If this caches any values, make sure it's cached with the default (non-modified) configuration.
+        RetryPolicy.defaultRetryPolicy();
+    }
+
     @Before
+    @After
     public void methodSetup() {
         ENVIRONMENT_VARIABLE_HELPER.reset();
         System.clearProperty(SdkSystemSetting.AWS_MAX_ATTEMPTS.property());
         System.clearProperty(SdkSystemSetting.AWS_RETRY_MODE.property());
+        System.clearProperty(ProfileFileSystemSetting.AWS_PROFILE.property());
+        System.clearProperty(ProfileFileSystemSetting.AWS_CONFIG_FILE.property());
     }
 
     @Test
@@ -96,10 +107,7 @@ public class RetryPolicyMaxRetriesTest {
         if (testData.expected == null) {
             assertThatThrownBy(() -> RetryPolicy.forRetryMode(RetryMode.defaultRetryMode())).isInstanceOf(RuntimeException.class);
         } else {
-            RetryMode mode = RetryMode.defaultRetryMode();
-            RetryPolicy policy = RetryPolicy.forRetryMode(mode);
-            Integer retries = policy.numRetries();
-            assertThat(retries).isEqualTo(testData.expected);
+            assertThat(RetryPolicy.forRetryMode(RetryMode.defaultRetryMode()).numRetries()).isEqualTo(testData.expected);
         }
     }
 
