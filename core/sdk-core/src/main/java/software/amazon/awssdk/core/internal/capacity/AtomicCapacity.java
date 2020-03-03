@@ -58,10 +58,6 @@ public class AtomicCapacity {
         }
     }
 
-    public int currentCapacity() {
-        return capacity.get();
-    }
-
     public void release(int amountToRelease) {
         Validate.isTrue(amountToRelease >= 0, "Amount must not be negative.");
 
@@ -81,5 +77,37 @@ public class AtomicCapacity {
                 return;
             }
         }
+    }
+
+    public int currentCapacity() {
+        return capacity.get();
+    }
+
+    public int maxCapacity() {
+        return maxCapacity;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        AtomicCapacity that = (AtomicCapacity) o;
+
+        if (maxCapacity != that.maxCapacity) {
+            return false;
+        }
+        return capacity.get() == that.capacity.get();
+    }
+
+    @Override
+    public int hashCode() {
+        int result = maxCapacity;
+        result = 31 * result + capacity.hashCode();
+        return result;
     }
 }

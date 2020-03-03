@@ -33,8 +33,7 @@ public final class AwsRetryPolicy {
     }
 
     public static RetryCondition defaultRetryCondition() {
-        return OrRetryCondition.create(RetryCondition.defaultRetryCondition(),
-                                       RetryOnErrorCodeCondition.create(AwsErrorCode.RETRYABLE_ERROR_CODES));
+        return OrRetryCondition.create(RetryCondition.defaultRetryCondition(), awsRetryCondition());
     }
 
     public static RetryPolicy defaultRetryPolicy() {
@@ -42,6 +41,16 @@ public final class AwsRetryPolicy {
     }
 
     public static RetryPolicy forRetryMode(RetryMode retryMode) {
-        return RetryPolicy.builder(retryMode).retryCondition(defaultRetryCondition()).build();
+        return addRefinements(RetryPolicy.forRetryMode(retryMode));
+    }
+
+    public static RetryPolicy addRefinements(RetryPolicy condition) {
+        return condition.toBuilder()
+                        .retryCondition(OrRetryCondition.create(condition.retryCondition(), awsRetryCondition()))
+                        .build();
+    }
+
+    private static RetryOnErrorCodeCondition awsRetryCondition() {
+        return RetryOnErrorCodeCondition.create(AwsErrorCode.RETRYABLE_ERROR_CODES);
     }
 }

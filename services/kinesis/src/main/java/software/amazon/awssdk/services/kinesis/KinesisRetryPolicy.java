@@ -15,12 +15,8 @@
 
 package software.amazon.awssdk.services.kinesis;
 
-import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_MODE;
-
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.awscore.retry.AwsRetryPolicy;
-import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
-import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.core.retry.conditions.AndRetryCondition;
@@ -33,15 +29,26 @@ import software.amazon.awssdk.services.kinesis.model.SubscribeToShardRequest;
 final class KinesisRetryPolicy {
     private KinesisRetryPolicy() {}
 
-    public static RetryPolicy defaultPolicy(SdkClientConfiguration config) {
-        RetryMode retryMode = config.option(RETRY_MODE);
-        RetryPolicy baseRetryPolicy = retryMode == null ? AwsRetryPolicy.defaultRetryPolicy()
-                                                        : AwsRetryPolicy.forRetryMode(retryMode);
+    public static RetryPolicy defaultRetryPolicy() {
+        // We usually don't apply AWS service-specific refinements to the retry policy if the retry mode is STANDARD, but
+        // we make an exception for Kinesis, because we can't retry subscribe-to-shard requests right now.
+        return AwsRetryPolicy.defaultRetryPolicy()
+                             .toBuilder()
+                             .retryCondition(AndRetryCondition.create(KinesisRetryPolicy::isNotSubscribeToShard,
+                                                                      AwsRetryPolicy.defaultRetryCondition()))
+                             .furtherRefinementsAllowed(false)
+                             .build();
+    }
 
-        return baseRetryPolicy.toBuilder()
-                              .retryCondition(AndRetryCondition.create(KinesisRetryPolicy::isNotSubscribeToShard,
-                                                                       AwsRetryPolicy.defaultRetryCondition()))
-                              .build();
+    public static RetryPolicy addRefinements(RetryPolicy policy) {
+        if (!policy.furtherRefinementsAllowed()) {
+            return policy;
+        }
+
+        return policy.toBuilder()
+                     .retryCondition(AndRetryCondition.create(KinesisRetryPolicy::isNotSubscribeToShard,
+                                                              policy.retryCondition()))
+                     .build();
     }
 
     private static boolean isNotSubscribeToShard(RetryPolicyContext context) {

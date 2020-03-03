@@ -96,14 +96,16 @@ public class RetryPolicyMaxRetriesTest {
         if (testData.expected == null) {
             assertThatThrownBy(() -> RetryPolicy.forRetryMode(RetryMode.defaultRetryMode())).isInstanceOf(RuntimeException.class);
         } else {
-            assertThat(RetryPolicy.forRetryMode(RetryMode.defaultRetryMode()).numRetries()).isEqualTo(testData.expected);
+            RetryMode mode = RetryMode.defaultRetryMode();
+            RetryPolicy policy = RetryPolicy.forRetryMode(mode);
+            Integer retries = policy.numRetries();
+            assertThat(retries).isEqualTo(testData.expected);
         }
     }
 
     private String diskLocationForConfig(String configFileName) {
         return getClass().getResource(configFileName).getFile();
     }
-
 
     private static class TestData {
         private final String attemptCountSystemProperty;

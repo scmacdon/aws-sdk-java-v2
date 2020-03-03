@@ -18,7 +18,6 @@ package software.amazon.awssdk.core.retry.conditions;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
-import software.amazon.awssdk.core.retry.RetryUtils;
 
 @SdkPublicApi
 @FunctionalInterface
@@ -31,6 +30,9 @@ public interface RetryCondition {
      */
     boolean shouldRetry(RetryPolicyContext context);
 
+    default void willNotRetry(RetryPolicyContext context) {
+    }
+
     default void requestSucceeded(RetryPolicyContext context) {
     }
 
@@ -38,11 +40,11 @@ public interface RetryCondition {
         return OrRetryCondition.create(
             RetryOnStatusCodeCondition.create(SdkDefaultRetrySetting.RETRYABLE_STATUS_CODES),
             RetryOnExceptionsCondition.create(SdkDefaultRetrySetting.RETRYABLE_EXCEPTIONS),
-            c -> RetryUtils.isClockSkewException(c.exception()),
-            c -> RetryUtils.isThrottlingException(c.exception()));
+            RetryOnClockSkewCondition.create(),
+            RetryOnThrottlingCondition.create());
     }
 
     static RetryCondition none() {
-        return c -> false;
+        return MaxNumberOfRetriesCondition.create(0);
     }
 }

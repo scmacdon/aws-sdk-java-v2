@@ -23,12 +23,16 @@ import software.amazon.awssdk.core.internal.capacity.AtomicCapacity;
 import software.amazon.awssdk.core.internal.capacity.DefaultTokenBucketRetryCondition;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
 
 @SdkPublicApi
 public class TokenBucketRetryCondition implements RetryCondition {
     private static final ExecutionAttribute<Capacity> LAST_ACQUIRED_CAPACITY =
         new ExecutionAttribute<>("TokenBucketRetryCondition.LAST_ACQUIRED_CAPACITY");
+
+    private static final ExecutionAttribute<Integer> RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION =
+        new ExecutionAttribute<>("TokenBucketRetryCondition.RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION");
 
     private final AtomicCapacity capacity;
     private final TokenBucketExceptionCostCalculator exceptionCostCalculator;
@@ -61,9 +65,25 @@ public class TokenBucketRetryCondition implements RetryCondition {
 
         Optional<Capacity> capacity = this.capacity.tryAcquire(costOfFailure);
 
-        capacity.ifPresent(c -> context.executionAttributes().putAttribute(LAST_ACQUIRED_CAPACITY, c));
+        capacity.ifPresent(c -> {
+            context.executionAttributes().putAttribute(LAST_ACQUIRED_CAPACITY, c);
+            context.executionAttributes().putAttribute(RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION,
+                                                       context.retriesAttempted());
+        });
 
         return capacity.isPresent();
+    }
+
+    @Override
+    public void willNotRetry(RetryPolicyContext context) {
+        int lastAcquisitionRetryCount = context.executionAttributes().getAttribute(RETRY_COUNT_OF_LAST_CAPACITY_ACQUISITION);
+
+        if (context.retriesAttempted() == lastAcquisitionRetryCount) {
+            // We said yes to "should-retry", but something else caused it not to retry
+            Capacity lastAcquiredCapacity = context.executionAttributes().getAttribute(LAST_ACQUIRED_CAPACITY);
+            Validate.validState(lastAcquiredCapacity != null, "Last acquired capacity should not be null.");
+            capacity.release(lastAcquiredCapacity.capacityAcquired());
+        }
     }
 
     @Override
@@ -75,6 +95,38 @@ public class TokenBucketRetryCondition implements RetryCondition {
         } else {
             capacity.release(lastAcquiredCapacity.capacityAcquired());
         }
+    }
+
+    @Override
+    public String toString() {
+        return ToString.builder("TokenBucketRetryCondition")
+                       .add("capacity", capacity.currentCapacity() + "/" + capacity.maxCapacity())
+                       .add("exceptionCostCalculator", exceptionCostCalculator)
+                       .build();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TokenBucketRetryCondition that = (TokenBucketRetryCondition) o;
+
+        if (!capacity.equals(that.capacity)) {
+            return false;
+        }
+        return exceptionCostCalculator.equals(that.exceptionCostCalculator);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = capacity.hashCode();
+        result = 31 * result + exceptionCostCalculator.hashCode();
+        return result;
     }
 
     public static final class Builder {

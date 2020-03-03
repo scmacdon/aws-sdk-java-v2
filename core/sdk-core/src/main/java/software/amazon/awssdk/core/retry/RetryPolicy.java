@@ -44,34 +44,47 @@ import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 @Immutable
 @SdkPublicApi
 public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder, RetryPolicy> {
+    private final boolean furtherRefinementsAllowed;
     private final RetryMode retryMode;
     private final BackoffStrategy backoffStrategy;
     private final BackoffStrategy throttlingBackoffStrategy;
     private final Integer numRetries;
-    private final boolean outageCompensationEnabled;
-    private final RetryCondition retryConditionFromBuilder;
     private final RetryCondition retryCondition;
+    private final RetryCondition retryCapacityCondition;
+
+    private final RetryCondition aggregateRetryCondition;
 
     private RetryPolicy(BuilderImpl builder) {
+        this.furtherRefinementsAllowed = builder.furtherRefinementsAllowed;
         this.retryMode = builder.retryMode;
         this.backoffStrategy = builder.backoffStrategy;
         this.throttlingBackoffStrategy = builder.throttlingBackoffStrategy;
         this.numRetries = builder.numRetries;
-        this.outageCompensationEnabled = builder.outageCompensationEnabled;
-        this.retryConditionFromBuilder = builder.retryCondition;
-        this.retryCondition = generateRetryCondition();
+        this.retryCondition = builder.retryCondition;
+        this.retryCapacityCondition = builder.retryCapacityCondition;
+
+        this.aggregateRetryCondition = generateAggregateRetryCondition();
     }
 
-    private RetryCondition generateRetryCondition() {
-        RetryCondition retryCondition = AndRetryCondition.create(MaxNumberOfRetriesCondition.create(numRetries),
-                                                                 retryConditionFromBuilder);
-        if (outageCompensationEnabled) {
-            // Token-bucket-retry-condition should be last, so that we don't take away capacity and then fail some other
-            // retry condition.
-            return AndRetryCondition.create(retryCondition, DefaultTokenBucketRetryCondition.forRetryMode(retryMode));
+    private RetryCondition generateAggregateRetryCondition() {
+        RetryCondition aggregate = AndRetryCondition.create(MaxNumberOfRetriesCondition.create(numRetries),
+                                                            retryCondition);
+        if (retryCapacityCondition != null) {
+            return AndRetryCondition.create(aggregate, retryCapacityCondition);
         }
+        return aggregate;
+    }
 
-        return retryCondition;
+    public RetryMode retryMode() {
+        return retryMode;
+    }
+
+    public boolean furtherRefinementsAllowed() {
+        return furtherRefinementsAllowed;
+    }
+
+    public RetryCondition aggregateRetryCondition() {
+        return aggregateRetryCondition;
     }
 
     public RetryCondition retryCondition() {
@@ -91,18 +104,19 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
     }
 
     public Builder toBuilder() {
-        return builder(retryMode).numRetries(numRetries)
-                                 .retryCondition(retryConditionFromBuilder)
+        return builder(retryMode).furtherRefinementsAllowed(furtherRefinementsAllowed)
+                                 .numRetries(numRetries)
+                                 .retryCondition(retryCondition)
                                  .backoffStrategy(backoffStrategy)
                                  .throttlingBackoffStrategy(throttlingBackoffStrategy)
-                                 .outageCompensationEnabled(outageCompensationEnabled);
+                                 .retryCapacityCondition(retryCapacityCondition);
     }
 
     @Override
     public String toString() {
         return ToString.builder("RetryPolicy")
-                       .add("numRetries", numRetries)
-                       .add("retryCondition", retryCondition)
+                       .add("furtherRefinementsAllowed", furtherRefinementsAllowed)
+                       .add("aggregateRetryCondition", aggregateRetryCondition)
                        .add("backoffStrategy", backoffStrategy)
                        .add("throttlingBackoffStrategy", throttlingBackoffStrategy)
                        .build();
@@ -119,8 +133,10 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
 
         RetryPolicy that = (RetryPolicy) o;
 
-        // Retry condition also encodes outage-compensation-enabled and num-retries
-        if (!retryCondition.equals(that.retryCondition)) {
+        if (furtherRefinementsAllowed != that.furtherRefinementsAllowed) {
+            return false;
+        }
+        if (!aggregateRetryCondition.equals(that.aggregateRetryCondition)) {
             return false;
         }
         if (!backoffStrategy.equals(that.backoffStrategy)) {
@@ -134,8 +150,8 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
 
     @Override
     public int hashCode() {
-        // Retry condition also encodes outage-compensation-enabled and num-retries
-        int result = retryCondition.hashCode();
+        int result = aggregateRetryCondition.hashCode();
+        result = 31 * result + Boolean.hashCode(furtherRefinementsAllowed);
         result = 31 * result + backoffStrategy.hashCode();
         result = 31 * result + throttlingBackoffStrategy.hashCode();
         return result;
@@ -167,6 +183,10 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
     }
 
     public interface Builder extends CopyableBuilder<Builder, RetryPolicy> {
+        Builder furtherRefinementsAllowed(boolean furtherRefinementsAllowed);
+
+        boolean furtherRefinementsAllowed();
+
         Builder backoffStrategy(BackoffStrategy backoffStrategy);
 
         BackoffStrategy backoffStrategy();
@@ -179,13 +199,13 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
 
         RetryCondition retryCondition();
 
+        Builder retryCapacityCondition(RetryCondition retryCapacityCondition);
+
+        RetryCondition retryCapacityCondition();
+
         Builder numRetries(Integer numRetries);
 
         Integer numRetries();
-
-        Builder outageCompensationEnabled(boolean outageCompensationEnabled);
-
-        boolean outageCompensationEnabled();
         
         RetryPolicy build();
     }
@@ -195,21 +215,37 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
      */
     private static final class BuilderImpl implements Builder {
         private final RetryMode retryMode;
-        private boolean isDefaultCondition = true;
 
+        private boolean furtherRefinementsAllowed;
         private Integer numRetries;
-        private boolean outageCompensationEnabled;
         private BackoffStrategy backoffStrategy;
         private BackoffStrategy throttlingBackoffStrategy;
         private RetryCondition retryCondition;
+        private RetryCondition retryCapacityCondition;
 
         private BuilderImpl(RetryMode retryMode) {
             this.retryMode = retryMode;
             this.numRetries = SdkDefaultRetrySetting.maxAttempts(retryMode) - 1;
-            this.outageCompensationEnabled = true;
+            this.furtherRefinementsAllowed = true;
             this.backoffStrategy = BackoffStrategy.defaultStrategy();
             this.throttlingBackoffStrategy = BackoffStrategy.defaultThrottlingStrategy();
             this.retryCondition = RetryCondition.defaultRetryCondition();
+            this.retryCapacityCondition = DefaultTokenBucketRetryCondition.forRetryMode(retryMode);
+        }
+
+        @Override
+        public Builder furtherRefinementsAllowed(boolean furtherRefinementsAllowed) {
+            this.furtherRefinementsAllowed = furtherRefinementsAllowed;
+            return this;
+        }
+
+        public void setFurtherRefinementsAllowed(boolean furtherRefinementsAllowed) {
+            furtherRefinementsAllowed(furtherRefinementsAllowed);
+        }
+
+        @Override
+        public boolean furtherRefinementsAllowed() {
+            return furtherRefinementsAllowed;
         }
 
         @Override
@@ -225,21 +261,6 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
         @Override
         public Integer numRetries() {
             return numRetries;
-        }
-
-        @Override
-        public Builder outageCompensationEnabled(boolean outageCompensationEnabled) {
-            this.outageCompensationEnabled = outageCompensationEnabled;
-            return this;
-        }
-
-        public void setOutageCompensationEnabled(boolean outageCompensationEnabled) {
-            outageCompensationEnabled(outageCompensationEnabled);
-        }
-
-        @Override
-        public boolean outageCompensationEnabled() {
-            return outageCompensationEnabled;
         }
 
         @Override
@@ -274,7 +295,6 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
 
         @Override
         public Builder retryCondition(RetryCondition retryCondition) {
-            this.isDefaultCondition = false;
             this.retryCondition = retryCondition;
             return this;
         }
@@ -286,6 +306,21 @@ public final class RetryPolicy implements ToCopyableBuilder<RetryPolicy.Builder,
         @Override
         public RetryCondition retryCondition() {
             return retryCondition;
+        }
+
+        @Override
+        public Builder retryCapacityCondition(RetryCondition retryCapacityCondition) {
+            this.retryCapacityCondition = retryCapacityCondition;
+            return this;
+        }
+
+        public void setRetryCapacityCondition(RetryCondition retryCapacityCondition) {
+            retryCapacityCondition(retryCapacityCondition);
+        }
+
+        @Override
+        public RetryCondition retryCapacityCondition() {
+            return this.retryCapacityCondition;
         }
 
         @Override

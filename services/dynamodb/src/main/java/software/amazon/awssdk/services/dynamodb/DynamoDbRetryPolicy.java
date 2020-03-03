@@ -15,12 +15,9 @@
 
 package software.amazon.awssdk.services.dynamodb;
 
-import static software.amazon.awssdk.core.client.config.SdkClientOption.RETRY_MODE;
-
 import java.time.Duration;
 import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.awscore.retry.AwsRetryPolicy;
-import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetrySetting;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -59,11 +56,12 @@ final class DynamoDbRetryPolicy {
     /**
      * Default retry policy for DynamoDB, when using the LEGACY retry mode.
      */
-    private static final RetryPolicy LEGACY =
+    private static final RetryPolicy LEGACY_RETRY_POLICY =
         AwsRetryPolicy.defaultRetryPolicy()
                       .toBuilder()
                       .numRetries(LEGACY_MAX_ERROR_RETRY)
                       .backoffStrategy(LEGACY_BACKOFF_STRATEGY)
+                      .furtherRefinementsAllowed(false)
                       .build();
 
     private DynamoDbRetryPolicy() {}
@@ -71,16 +69,20 @@ final class DynamoDbRetryPolicy {
     /**
      * @return Default retry policy used by DynamoDbClient
      */
-    public static RetryPolicy defaultPolicy(SdkClientConfiguration config) {
-        RetryMode retryMode = config.option(RETRY_MODE);
-        if (retryMode == null) {
-            retryMode = RetryMode.defaultRetryModeInstance();
+    public static RetryPolicy defaultRetryPolicy() {
+        if (RetryMode.defaultRetryModeInstance() == RetryMode.LEGACY) {
+            return LEGACY_RETRY_POLICY;
         }
 
-        if (retryMode != RetryMode.LEGACY) {
-            return RetryPolicy.forRetryMode(retryMode);
-        }
+        return AwsRetryPolicy.defaultRetryPolicy()
+                             .toBuilder()
+                             .furtherRefinementsAllowed(false)
+                             .build();
+    }
 
-        return LEGACY;
+    public static RetryPolicy addRefinements(RetryPolicy policy) {
+        // We don't apply refinements for DynamoDB because the "refinements" here are too aggressive to reasonably be called
+        // "refinements". We only use the values here if we're in our default retry policy path.
+        return policy;
     }
 }

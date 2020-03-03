@@ -37,7 +37,6 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
     private final SdkException exception;
     private final ExecutionAttributes executionAttributes;
     private final int retriesAttempted;
-    private final int totalRequests;
     private final Integer httpStatusCode;
 
     private RetryPolicyContext(Builder builder) {
@@ -46,7 +45,6 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
         this.exception = builder.exception;
         this.executionAttributes = builder.executionAttributes;
         this.retriesAttempted = builder.retriesAttempted;
-        this.totalRequests = builder.totalRequests;
         this.httpStatusCode = builder.httpStatusCode;
     }
 
@@ -93,7 +91,7 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
      * @return The total number of requests made thus far.
      */
     public int totalRequests() {
-        return this.totalRequests;
+        return this.retriesAttempted + 1;
     }
 
     /**
@@ -115,7 +113,6 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
         private SdkException exception;
         private ExecutionAttributes executionAttributes;
         private int retriesAttempted;
-        private int totalRequests;
         private Integer httpStatusCode;
 
         private Builder() {
@@ -127,7 +124,6 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
             this.exception = copy.exception;
             this.executionAttributes = copy.executionAttributes;
             this.retriesAttempted = copy.retriesAttempted;
-            this.totalRequests = copy.totalRequests;
             this.httpStatusCode = copy.httpStatusCode;
         }
 
@@ -153,11 +149,6 @@ public final class RetryPolicyContext implements ToCopyableBuilder<RetryPolicyCo
 
         public Builder retriesAttempted(int retriesAttempted) {
             this.retriesAttempted = retriesAttempted;
-            return this;
-        }
-
-        public Builder totalRequests(int totalRequests) {
-            this.totalRequests = totalRequests;
             return this;
         }
 

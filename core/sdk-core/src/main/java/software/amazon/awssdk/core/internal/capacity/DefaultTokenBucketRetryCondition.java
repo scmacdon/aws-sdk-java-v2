@@ -27,9 +27,9 @@ public class DefaultTokenBucketRetryCondition {
 
     public static TokenBucketRetryCondition forRetryMode(RetryMode mode) {
         return TokenBucketRetryCondition.builder()
-                                         .tokenBucketSize(SdkDefaultRetrySetting.TOKEN_BUCKET_SIZE)
-                                         .exceptionCostCalculator(getExceptionCostCalculator(mode))
-                                         .build();
+                                        .tokenBucketSize(SdkDefaultRetrySetting.TOKEN_BUCKET_SIZE)
+                                        .exceptionCostCalculator(getExceptionCostCalculator(mode))
+                                        .build();
     }
 
     private static TokenBucketExceptionCostCalculator getExceptionCostCalculator(RetryMode mode) {

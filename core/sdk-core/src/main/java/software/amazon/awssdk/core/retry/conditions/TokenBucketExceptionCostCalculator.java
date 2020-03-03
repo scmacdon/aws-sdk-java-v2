@@ -18,39 +18,20 @@ package software.amazon.awssdk.core.retry.conditions;
 import java.util.function.Function;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.core.retry.RetryUtils;
+import software.amazon.awssdk.core.internal.retry.DefaultTokenBucketExceptionCostCalculator;
 
 @SdkPublicApi
 @FunctionalInterface
 public interface TokenBucketExceptionCostCalculator extends Function<SdkException, Integer> {
     static Builder builder() {
-        return new Builder();
+        return new DefaultTokenBucketExceptionCostCalculator.Builder();
     }
 
-    final class Builder {
-        private Integer throttlingExceptionCost;
-        private Integer defaultExceptionCost;
+    interface Builder {
+        Builder throttlingExceptionCost(int cost);
 
-        private Builder() {}
+        Builder defaultExceptionCost(int cost);
 
-        public Builder throttlingExceptionCost(int cost) {
-            this.throttlingExceptionCost = cost;
-            return this;
-        }
-
-        public Builder defaultExceptionCost(int cost) {
-            this.defaultExceptionCost = cost;
-            return this;
-        }
-
-        public TokenBucketExceptionCostCalculator build() {
-            return e -> {
-                if (throttlingExceptionCost != null && RetryUtils.isThrottlingException(e)) {
-                    return throttlingExceptionCost;
-                }
-
-                return defaultExceptionCost;
-            };
-        }
+        TokenBucketExceptionCostCalculator build();
     }
 }

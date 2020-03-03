@@ -15,9 +15,9 @@
 
 package software.amazon.awssdk.core.retry.conditions;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.List;
 import software.amazon.awssdk.annotations.SdkPublicApi;
 import software.amazon.awssdk.core.retry.RetryPolicyContext;
 import software.amazon.awssdk.utils.ToString;
@@ -28,7 +28,7 @@ import software.amazon.awssdk.utils.ToString;
 @SdkPublicApi
 public final class OrRetryCondition implements RetryCondition {
 
-    private Set<RetryCondition> conditions = new HashSet<>();
+    private final List<RetryCondition> conditions = new ArrayList<>();
 
     private OrRetryCondition(RetryCondition... conditions) {
         Collections.addAll(this.conditions, conditions);
@@ -44,6 +44,11 @@ public final class OrRetryCondition implements RetryCondition {
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         return conditions.stream().anyMatch(r -> r.shouldRetry(context));
+    }
+
+    @Override
+    public void willNotRetry(RetryPolicyContext context) {
+        conditions.forEach(c -> c.willNotRetry(context));
     }
 
     @Override

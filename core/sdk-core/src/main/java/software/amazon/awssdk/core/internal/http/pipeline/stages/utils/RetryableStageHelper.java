@@ -64,7 +64,7 @@ public class RetryableStageHelper {
     }
 
     public boolean retryPolicyAllowsRetry() {
-        if (!isRetry()) {
+        if (isInitialAttempt()) {
             return true;
         }
 
@@ -72,7 +72,7 @@ public class RetryableStageHelper {
             return false;
         }
 
-        return retryPolicy.retryCondition().shouldRetry(retryPolicyContext(true));
+        return retryPolicy.aggregateRetryCondition().shouldRetry(retryPolicyContext(true));
     }
 
     public SdkException retryPolicyDisallowedRetryException() {
@@ -81,12 +81,15 @@ public class RetryableStageHelper {
 
     public Duration getBackoffDelay() {
         Duration result;
-        if (!isRetry()) {
+        if (isInitialAttempt()) {
             result = Duration.ZERO;
-        } else if (RetryUtils.isThrottlingException(lastException)) {
-            result = retryPolicy.throttlingBackoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext(true));
         } else {
-            result = retryPolicy.backoffStrategy().computeDelayBeforeNextRetry(retryPolicyContext(true));
+            RetryPolicyContext context = retryPolicyContext(true);
+            if (RetryUtils.isThrottlingException(lastException)) {
+                result = retryPolicy.throttlingBackoffStrategy().computeDelayBeforeNextRetry(context);
+            } else {
+                result = retryPolicy.backoffStrategy().computeDelayBeforeNextRetry(context);
+            }
         }
         lastBackoffDelay = result;
         return result;
@@ -103,21 +106,17 @@ public class RetryableStageHelper {
                                                                   .map(TokenBucketRetryCondition.Capacity::capacityRemaining)
                                                                   .orElse(null);
 
-        if (availableRetryCapacity != null) {
-            return request.toBuilder()
-                          .putHeader(SDK_RETRY_INFO_HEADER,
-                                     String.format("%s/%s/%s",
-                                                   attemptNumber - 1,
-                                                   lastBackoffDelay.toMillis(),
-                                                   availableRetryCapacity >= 0 ? availableRetryCapacity : ""))
-                          .build();
-        }
-
-        return request;
+        return request.toBuilder()
+                      .putHeader(SDK_RETRY_INFO_HEADER,
+                                 String.format("%s/%s/%s",
+                                               attemptNumber - 1,
+                                               lastBackoffDelay.toMillis(),
+                                               availableRetryCapacity != null ? availableRetryCapacity : ""))
+                      .build();
     }
 
     public void logSendingRequest() {
-        SdkStandardLogger.REQUEST_LOGGER.debug(() -> (isRetry() ? "Retrying" : "Sending") + " Request: " + request);
+        SdkStandardLogger.REQUEST_LOGGER.debug(() -> (isInitialAttempt() ? "Sending" : "Retrying") + " Request: " + request);
     }
 
     public void adjustClockIfClockSkew(Response<?> response) {
@@ -128,9 +127,8 @@ public class RetryableStageHelper {
     }
 
     public void attemptSucceeded() {
-        retryPolicy.retryCondition().requestSucceeded(retryPolicyContext(false));
+        retryPolicy.aggregateRetryCondition().requestSucceeded(retryPolicyContext(false));
     }
-
 
     public int getAttemptNumber() {
         return attemptNumber;
@@ -155,8 +153,8 @@ public class RetryableStageHelper {
         this.lastResponse = lastResponse;
     }
 
-    private boolean isRetry() {
-        return attemptNumber > 1;
+    private boolean isInitialAttempt() {
+        return attemptNumber == 1;
     }
 
     private RetryPolicyContext retryPolicyContext(boolean isBeforeAttemptSent) {
@@ -164,10 +162,13 @@ public class RetryableStageHelper {
                                  .request(request)
                                  .originalRequest(context.originalRequest())
                                  .exception(lastException)
-                                 .retriesAttempted(isBeforeAttemptSent ? attemptNumber - 2 : attemptNumber - 1)
-                                 .totalRequests(isBeforeAttemptSent ? attemptNumber - 1 : attemptNumber)
+                                 .retriesAttempted(retriesAttemptedSoFar(isBeforeAttemptSent))
                                  .executionAttributes(context.executionAttributes())
                                  .httpStatusCode(lastResponse == null ? null : lastResponse.statusCode())
                                  .build();
+    }
+
+    private int retriesAttemptedSoFar(boolean isBeforeAttemptSent) {
+        return Math.max(0, isBeforeAttemptSent ? attemptNumber - 2 : attemptNumber - 1);
     }
 }
