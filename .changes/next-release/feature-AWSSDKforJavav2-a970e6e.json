@@ -1,0 +1,5 @@
+{
+    "type": "feature",
+    "category": "AWS SDK for Java v2",
+    "description": "Updated profile file configuration to only be read once, at startup, instead of each time a client is created."
+}
